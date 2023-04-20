@@ -2,20 +2,31 @@ import os
 import sys
 from PIL import Image, ImageDraw, ImageFont
 import replicate
+import requests
+from io import BytesIO
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
-OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output')
-FONTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(ROOT_DIR, 'data')
+OUTPUT_DIR = os.path.join(ROOT_DIR, 'output')
+FONTS_DIR = os.path.join(ROOT_DIR, 'fonts')
 
-def remove_background(image_path, output_path):
+# set replicate api token
+with open(os.path.join(ROOT_DIR, 'replicate.txt'), 'r') as f:
+    os.environ['REPLICATE_API_TOKEN'] = f.read()
+
+def remove_background(
+        image_path = os.path.join(DATA_DIR, 'test.png'),
+        output_path = os.path.join(OUTPUT_DIR, 'test.png'),
+):
     # use replicate api to remove background
     # need to have REPLICATE_API_KEY environment variable set
-    output = replicate.run(
+    img_url = replicate.run(
         "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
         input={"image": open(image_path, "rb")}
     )
     # save output image
-    output["image"].save(output_path)
+    image = Image.open(BytesIO(requests.get(img_url).content))
+    image.save(output_path)
 
 def draw_text(
     image_path = os.path.join(DATA_DIR, 'test.png'), 
@@ -90,5 +101,6 @@ def generate(
 
 if __name__ == '__main__':
 
-    draw_text()
+    remove_background()
+    # draw_text()
     # generate()

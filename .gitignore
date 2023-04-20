@@ -8,6 +8,9 @@ data/
 output/
 fonts/
 
+# Tokens
+replicate.txt
+
 # C extensions
 *.so
 
