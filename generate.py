@@ -4,19 +4,34 @@ from PIL import Image, ImageDraw, ImageFont
 import replicate
 import requests
 from io import BytesIO
+import numpy as np
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 OUTPUT_DIR = os.path.join(ROOT_DIR, 'output')
 FONTS_DIR = os.path.join(ROOT_DIR, 'fonts')
 
+
+# ChatGPT's favorite colors
+COLORS = {
+    "coral": (255, 127, 80),
+    "turquoise": (64, 224, 208),
+    "cornflower_blue": (100, 149, 237),
+    "goldenrod": (218, 165, 32),
+    "orchid": (218, 112, 214),
+    "medium_purple": (147, 112, 219),
+    "aquamarine": (127, 255, 212),
+    "salmon": (250, 128, 114),
+    "dark_olive_green": (85, 107, 47),
+    "light_sea_green": (32, 178, 170),
+}
 # set replicate api token
 with open(os.path.join(ROOT_DIR, 'replicate.txt'), 'r') as f:
     os.environ['REPLICATE_API_TOKEN'] = f.read()
 
 def remove_background(
-        image_path = os.path.join(DATA_DIR, 'test.png'),
-        output_path = os.path.join(OUTPUT_DIR, 'test.png'),
+    image_path = os.path.join(DATA_DIR, 'test.png'),
+    output_path = os.path.join(OUTPUT_DIR, 'test.png'),
 ):
     # use replicate api to remove background
     # need to have REPLICATE_API_KEY environment variable set
@@ -28,21 +43,19 @@ def remove_background(
     image = Image.open(BytesIO(requests.get(img_url).content))
     image.save(output_path)
 
+# TODO: Can you iterate on these variables directly from ChatGPT?
 def draw_text(
-    image_path = os.path.join(DATA_DIR, 'test.png'), 
-    output_path = os.path.join(OUTPUT_DIR, 'test.png'), 
+    image : Image,
     text = 'Hello World',
-    text_color = (0, 0, 255), 
+    text_color = COLORS['aquamarine'], 
     font = 'hupo',
-    font_size = 32,
-    rectangle_color = (255, 255, 255),
-    rectangle_padding = 5,
+    font_size = 72,
+    rectangle_color = COLORS['dark_olive_green'],
+    rectangle_padding = 20,
 ):
     # choose file based on font name from font dir
     font_path = os.path.join(FONTS_DIR, font + '.ttf')
     font = ImageFont.truetype(font_path, font_size)
-    # open image
-    image = Image.open(image_path)
     # draw text on image
     draw = ImageDraw.Draw(image)
     text_width, text_height = draw.textsize(text, font=font)
@@ -59,48 +72,42 @@ def draw_text(
     
     # Render the text
     draw.text((x, y), text, fill=text_color, font=font)
-    # save output image
-    image.save(output_path)
 
-def generate(
-    # path to data directory
-    data_dir = DATA_DIR,
+    return image
+
+def combine(
+    foreground_image_name = 'test_bu_nobg.png',
+    background_image_name = 'test_bg.png',
+    foreground_dir = os.path.join(DATA_DIR, 'bu.1.1.nobg'),
+    background_dir = os.path.join(DATA_DIR, 'bg.16.9'),
     # path to output directory
     output_dir = OUTPUT_DIR,
-    # name of directory with background images
-    background_dir = 'background',
-    # name of directory with foreground images
-    foreground_dir = 'foreground',
     # output image size,
     size = (1280, 720),
+    # bu size
+    bu_size = (420, 420),
+    # distribution of bu in image
+    bu_gaussian = ((0.05, 0.05), (0.5, 0.05)),
 ):
-    # create output directory if not exists
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    # get list of background images
-    background_images = os.listdir(os.path.join(data_dir, background_dir))
-    # get list of foreground images
-    foreground_images = os.listdir(os.path.join(data_dir, foreground_dir))
-    # iterate over background images
-    for background_image in background_images:
-        # open background image
-        background = Image.open(os.path.join(data_dir, background_dir, background_image))
-        # resize background image
-        background = background.resize(size)
-        # iterate over foreground images
-        for foreground_image in foreground_images:
-            # open foreground image
-            foreground = Image.open(os.path.join(data_dir, foreground_dir, foreground_image))
-            # resize foreground image
-            foreground = foreground.resize(size)
-            # paste foreground image on background image
-            background.paste(foreground, (0, 0), foreground)
-            # save output image
-            background.save(os.path.join(output_dir, background_image.replace('.jpg', '') + '_' + foreground_image))
-
+    # load images
+    foreground_image = Image.open(os.path.join(foreground_dir, foreground_image_name))
+    background_image = Image.open(os.path.join(background_dir, background_image_name))
+    # resize images
+    foreground_image = foreground_image.resize(bu_size)
+    background_image = background_image.resize(size)
+    # Sample position for bu based on gaussain
+    x = int(np.random.normal(size=1, loc=bu_gaussian[0][0], scale=bu_gaussian[0][1])[0] * size[0])
+    y = int(np.random.normal(size=1, loc=bu_gaussian[1][0], scale=bu_gaussian[1][1])[0] * size[1])
+    # paste images
+    background_image.paste(foreground_image, (x, y), foreground_image)
+    # draw text on image
+    background_image = draw_text(background_image)
+    # save output image
+    output_path = os.path.join(output_dir, foreground_image_name)
+    background_image.save(output_path)
 
 if __name__ == '__main__':
 
-    remove_background()
+    # remove_background()
     # draw_text()
-    # generate()
+    combine()
