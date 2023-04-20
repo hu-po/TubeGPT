@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 from PIL import Image, ImageDraw, ImageFont
 import replicate
 import requests
@@ -47,12 +48,14 @@ def remove_background(
 def draw_text(
     image : Image,
     text = 'Hello World',
-    text_color = COLORS['aquamarine'], 
+    text_color = 'aquamarine', 
     font = 'hupo',
     font_size = 72,
-    rectangle_color = COLORS['dark_olive_green'],
+    rectangle_color = 'dark_olive_green',
     rectangle_padding = 20,
 ):
+    text_color = COLORS[text_color]
+    rectangle_color = COLORS[rectangle_color]
     # choose file based on font name from font dir
     font_path = os.path.join(FONTS_DIR, font + '.ttf')
     font = ImageFont.truetype(font_path, font_size)
@@ -88,6 +91,7 @@ def combine(
     bu_size = (420, 420),
     # distribution of bu in image
     bu_gaussian = ((0.05, 0.05), (0.5, 0.05)),
+    **kwargs,
 ):
     # load images
     foreground_image = Image.open(os.path.join(foreground_dir, foreground_image_name))
@@ -101,12 +105,17 @@ def combine(
     # paste images
     background_image.paste(foreground_image, (x, y), foreground_image)
     # draw text on image
-    background_image = draw_text(background_image)
+    background_image = draw_text(background_image, **kwargs)
     # save output image
     output_path = os.path.join(output_dir, foreground_image_name)
     background_image.save(output_path)
 
 if __name__ == '__main__':
+
+    # Empty output directory
+    if os.path.exists(OUTPUT_DIR):
+        shutil.rmtree(OUTPUT_DIR)
+    os.mkdir(OUTPUT_DIR)
 
     # remove_background()
     # draw_text()
