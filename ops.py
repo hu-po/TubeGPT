@@ -125,7 +125,7 @@ def draw_text(
     output_path = os.path.join(OUTPUT_DIR, 'test_text.png'),
     text = 'Hello World',
     text_color = (255, 255, 255),
-    font = 'hupo',
+    font = 'Exo2-Bold',
     font_size = 72,
     rectangle_color = (0, 0, 0),
     rectangle_padding = 20,
@@ -151,6 +151,31 @@ def draw_text(
     # Render the text
     draw.text((x, y), text, fill=text_color, font=font)
     image.save(output_path)
+
+def resize_bg(
+    image_path = os.path.join(DATA_DIR, 'example_graphs.png'),
+    output_path = os.path.join(OUTPUT_DIR, 'example_graphs_resized.png'),
+    canvas_size = (1280, 720),
+):
+    img = Image.open(image_path)
+    # Keep aspect ratio, resize width to fit
+    width, height = img.size
+    new_width = canvas_size[0]
+    new_height = int(height * new_width / width)
+    resized_image = img.resize((new_width, new_height), Image.ANTIALIAS)
+
+    # Create a new canvas with the desired size, transparent background
+    canvas = Image.new('RGBA', canvas_size, (0, 0, 0, 0))
+
+    # Center the resized image on the canvas
+    paste_position = (
+        int((canvas_size[0] - new_width) / 2),
+        int((canvas_size[1] - new_height) / 2),
+    )
+    canvas.paste(resized_image, paste_position)
+
+    # Save the result
+    canvas.save(output_path)
 
 def stack_fgbg(
     fg_image_path = os.path.join(DATA_DIR, 'bu.1.1.nobg', 'test_bu_nobg.png'),
@@ -181,5 +206,6 @@ if __name__ == '__main__':
     # draw_text()
     # stack_fgbg()
     # gpt_text()
-    for _ in range(5):
-        print(gpt_color())
+    # for _ in range(5):
+    #     print(gpt_color())
+    resize_background()
