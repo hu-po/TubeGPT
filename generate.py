@@ -13,7 +13,7 @@ for _ in range(4):
         "Add several new interesting or related words." + \
         "Respond with the prompt only: no extra text or explanations."
     fg_prompt = gpt_text(
-        prompt="white bengal cat, blue eyes, cute, chubby",
+        prompt="portrait of white bengal cat, blue eyes, cute, chubby",
         system=_system,
     )
     bg_prompt = gpt_text(
