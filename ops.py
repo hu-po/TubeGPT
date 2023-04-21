@@ -13,25 +13,11 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 FONTS_DIR = os.path.join(ROOT_DIR, 'fonts')
 OUTPUT_DIR = os.path.join(ROOT_DIR, 'output')
+
 # Empty output directory (opinionated code motherfucker)
 if os.path.exists(OUTPUT_DIR):
     shutil.rmtree(OUTPUT_DIR)
 os.mkdir(OUTPUT_DIR)
-
-
-# ChatGPT's favorite colors
-COLORS = {
-    "coral": (255, 127, 80),
-    "turquoise": (64, 224, 208),
-    "cornflower_blue": (100, 149, 237),
-    "goldenrod": (218, 165, 32),
-    "orchid": (218, 112, 214),
-    "medium_purple": (147, 112, 219),
-    "aquamarine": (127, 255, 212),
-    "salmon": (250, 128, 114),
-    "dark_olive_green": (85, 107, 47),
-    "light_sea_green": (32, 178, 170),
-}
 
 # set replicate api token
 with open(os.path.join(ROOT_DIR, 'replicate.txt'), 'r') as f:
@@ -43,7 +29,7 @@ with open(os.path.join(ROOT_DIR, 'openai.txt'), 'r') as f:
     openai.api_key = _key
 
 def gpt_text(
-        prompt: Union[str, List[Dict[str, str]]],
+        prompt: Union[str, List[Dict[str, str]]] = None,
         system: str = None,
         model: str = "gpt-3.5-turbo",
         temperature : float = 0.6,
@@ -52,6 +38,8 @@ def gpt_text(
 ):
     if isinstance(prompt, str):
         prompt = [{"role" : "user", "content" : prompt}]
+    elif prompt is None:
+        prompt = []
     if system is not None:
         prompt.append({"role" : "system", "content" : system}) 
     response = openai.ChatCompletion.create(
@@ -62,6 +50,35 @@ def gpt_text(
         stop=stop,
     )
     return response['choices'][0]['message']['content']
+
+def gpt_color():
+    try:
+        color_name = gpt_text(
+            system=' '.join([
+                "You generate unique and interesting colors for a crayon set.",
+                "Crayon color names are only a few words.", 
+                "Respond with the colors only: no extra text or explanations.",
+            ]),
+            temperature=0.99,
+        )
+        rgb = gpt_text(
+            prompt=color_name,
+            system=' '.join([
+                "You generate RGB color tuples for digital art based on word descriptions.",
+                "Respond with three integers in the range 0 to 255 representing R, G, and B.",
+                "The three integers should be separated by commas, without spaces.",
+                "Respond with the colors only: no extra text or explanations.",
+            ]),
+            temperature=0.1,
+        )
+        rgb = rgb.split(',')
+        assert len(rgb) == 3
+        rgb = tuple([int(x) for x in rgb])
+        assert all([0 <= x <= 256 for x in rgb])
+    except:
+        color_name = 'black'
+        rgb = (0, 0, 0)
+    return rgb, color_name
 
 def gpt_image(
     prompt: str = None,
@@ -114,8 +131,6 @@ def draw_text(
     rectangle_color = 'dark_olive_green',
     rectangle_padding = 20,
 ):
-    text_color = COLORS[text_color]
-    rectangle_color = COLORS[rectangle_color]
     # choose file based on font name from font dir
     font_path = os.path.join(FONTS_DIR, font + '.ttf')
     font = ImageFont.truetype(font_path, font_size)
@@ -166,4 +181,6 @@ if __name__ == '__main__':
     # remove_background()
     # draw_text()
     # stack_fgbg()
-    gpt_text()
+    # gpt_text()
+    for _ in range(5):
+        print(gpt_color())

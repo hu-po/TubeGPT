@@ -2,8 +2,8 @@ import random
 import os
 import uuid
 
-from src import (OUTPUT_DIR, COLORS, draw_text, gpt_image, gpt_text, remove_bg,
-                 stack_fgbg)
+from ops import (OUTPUT_DIR, draw_text, gpt_image, gpt_text, remove_bg,
+                 stack_fgbg, gpt_color)
 
 for _ in range(4):
 
@@ -57,15 +57,17 @@ for _ in range(4):
             gaussian_mu_sig = ((0.05, 0.05), (0.5, 0.05)),
         )
 
+        text_rgb, text_color = gpt_color()
+        rect_rgb, rect_color = gpt_color()
+
         # Write text on top of image
-        _available_colors = list(COLORS.keys())
         draw_text(
             image_path = os.path.join(OUTPUT_DIR, f'{combo_image_name}.png'),
-            output_path = os.path.join(OUTPUT_DIR,  f'{combo_image_name}_text.png'),
-            text = 'AI Generated YouTube Thumbnails',
-            text_color = random.choice(_available_colors), 
+            output_path = os.path.join(OUTPUT_DIR,  f'_{combo_image_name}_text.png'),
+            text = f'{text_color} - {rect_color}',
+            text_color = text_rgb,
             font = 'hupo',
-            font_size = random.choice([50, 70, 100]),
-            rectangle_color = random.choice(_available_colors),
-            rectangle_padding = random.choice([10, 20, 40,]),
+            font_size = random.choice([50, 70, 80]),
+            rectangle_color = rect_rgb,
+            rectangle_padding = random.choice([20, 40]),
         )
