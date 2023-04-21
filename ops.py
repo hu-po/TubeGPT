@@ -120,15 +120,14 @@ def remove_bg(
     image = Image.open(BytesIO(requests.get(img_url).content))
     image.save(output_path)
 
-# TODO: Can you iterate on these variables directly from ChatGPT?
 def draw_text(
     image_path = os.path.join(DATA_DIR, 'test.png'),
     output_path = os.path.join(OUTPUT_DIR, 'test_text.png'),
     text = 'Hello World',
-    text_color = 'aquamarine', 
+    text_color = (255, 255, 255),
     font = 'hupo',
     font_size = 72,
-    rectangle_color = 'dark_olive_green',
+    rectangle_color = (0, 0, 0),
     rectangle_padding = 20,
 ):
     # choose file based on font name from font dir
