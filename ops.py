@@ -3,6 +3,11 @@ import shutil
 from io import BytesIO
 from typing import Dict, List, Union
 
+import google.auth
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+import urllib.parse as urlparse
+
 import numpy as np
 import openai
 import replicate
@@ -19,6 +24,9 @@ if os.path.exists(OUTPUT_DIR):
     shutil.rmtree(OUTPUT_DIR)
 os.mkdir(OUTPUT_DIR)
 
+# set google api key
+with open(os.path.join(ROOT_DIR, 'google.txt'), 'r') as f:
+    os.environ["GOOGLE_API_KEY"] = f.read()
 # set replicate api token
 with open(os.path.join(ROOT_DIR, 'replicate.txt'), 'r') as f:
     os.environ['REPLICATE_API_TOKEN'] = f.read()
@@ -41,7 +49,7 @@ def gpt_text(
     elif prompt is None:
         prompt = []
     if system is not None:
-        prompt.append({"role" : "system", "content" : system}) 
+        prompt = [{"role" : "system", "content" : system}] + prompt 
     response = openai.ChatCompletion.create(
         messages=prompt,
         model=model,
@@ -200,12 +208,43 @@ def stack_fgbg(
     # save output image
     bg_image.save(output_path)
 
-if __name__ == '__main__':
+def get_video_info(video_id):
+    if not video_id:
+        return None
+    try:
+        youtube = build('youtube', 'v3', developerKey=os.environ["GOOGLE_API_KEY"])
+        response = youtube.videos().list(
+            part='snippet',
+            id=video_id
+        ).execute()
+        if 'items' in response and len(response['items']) > 0:
+            description = response['items'][0]['snippet']['description']
+            title = response['items'][0]['snippet']['title']
+            return title, description
+        else:
+            return None
+    except HttpError as e:
+        print(f"An HTTP error {e.resp.status} occurred: {e.content}")
+        return None
 
+def get_video_hashtags_from_description(description):
+    # The last line of the description is the hashtags
+    hashtags = description.splitlines()[-1]
+    return hashtags
+
+def get_video_sentence_from_description(description):
+    # Split the text by the "Like" section
+    parts = description.split("Like 👍.")
+
+    # Get everything before the "Like" section
+    text_before_like = parts[0].strip()
+    return text_before_like
+
+if __name__ == '__main__':
+    pass
     # remove_background()
     # draw_text()
     # stack_fgbg()
     # gpt_text()
     # for _ in range(5):
     #     print(gpt_color())
-    resize_background()

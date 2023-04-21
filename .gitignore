@@ -11,6 +11,7 @@ fonts/
 # Tokens
 replicate.txt
 openai.txt
+google.txt
 
 # C extensions
 *.so
