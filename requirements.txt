@@ -1,3 +1,4 @@
 replicate
 openai
 numpy
+arxiv
