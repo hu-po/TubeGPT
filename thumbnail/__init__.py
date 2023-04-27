@@ -6,13 +6,14 @@ from ops_img import *
 log = logging.getLogger(__name__)
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+KEYS_DIR = os.path.join(ROOT_DIR, '.keys')
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 FONTS_DIR = os.path.join(ROOT_DIR, 'fonts')
 OUTPUT_DIR = os.path.join(ROOT_DIR, 'output')
 
 try:
     import openai
-    with open(os.path.join(ROOT_DIR, 'openai.txt'), 'r') as f:
+    with open(os.path.join(KEYS_DIR, 'openai.txt'), 'r') as f:
         _key = f.read()
         os.environ['OPENAI_API_KEY'] = _key
         openai.api_key = _key
@@ -29,7 +30,7 @@ except ImportError:
 
 try:
     from ops_google import *
-    with open(os.path.join(ROOT_DIR, 'google.txt'), 'r') as f:
+    with open(os.path.join(KEYS_DIR, 'google.txt'), 'r') as f:
         _key = f.read()
         os.environ["GOOGLE_API_KEY"] = _key
         GOOGLE_API_KEY = _key
@@ -40,7 +41,7 @@ except FileNotFoundError:
 
 try:
     from ops_replicate import *
-    with open(os.path.join(ROOT_DIR, 'replicate.txt'), 'r') as f:
+    with open(os.path.join(KEYS_DIR, 'replicate.txt'), 'r') as f:
         _key = f.read()
         os.environ['REPLICATE_API_TOKEN'] = _key
         REPLICATE_API_TOKEN = _key
@@ -51,7 +52,7 @@ except FileNotFoundError:
 
 try:
     from ops_notion import *
-    with open(os.path.join(ROOT_DIR, 'notion.txt'), 'r') as f:
+    with open(os.path.join(KEYS_DIR, 'notion.txt'), 'r') as f:
         _key = f.read()
         os.environ['NOTION_API_KEY'] = _key
         NOTION_API_KEY = _key

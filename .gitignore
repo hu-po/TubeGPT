@@ -9,7 +9,7 @@ output/
 fonts/
 
 # Tokens
-.tokens/*
+.keys/*
 
 # C extensions
 *.so
