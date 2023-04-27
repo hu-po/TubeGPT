@@ -3,13 +3,13 @@ import shutil
 import uuid
 from typing import Dict, List, Union
 
-from thumbnails import DATA_DIR, OUTPUT_DIR
-from thumbnails.ops_google import (get_video_hashtags_from_description,
+from thumbnail import DATA_DIR, OUTPUT_DIR
+from thumbnail.ops_google import (get_video_hashtags_from_description,
                                    get_video_info,
                                    get_video_sentence_from_description)
-from thumbnails.ops_img import draw_text, resize_bg, stack_fgbg
-from thumbnails.ops_openai import gpt_color, gpt_image, gpt_text
-from thumbnails.ops_replicate import remove_bg
+from thumbnail.ops_img import draw_text, resize_bg, stack_fgbg
+from thumbnail.ops_openai import gpt_color, gpt_image, gpt_text
+from thumbnail.ops_replicate import remove_bg
 
 desired_sentence = '''In this stream we review the paper: "A Method for Animating Children's Drawings of the Human Figure" out of Meta AI Research.
 
