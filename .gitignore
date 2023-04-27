@@ -9,9 +9,7 @@ output/
 fonts/
 
 # Tokens
-replicate.txt
-openai.txt
-google.txt
+.tokens/*
 
 # C extensions
 *.so
