@@ -2,3 +2,5 @@ replicate
 openai
 numpy
 arxiv
+google-api-python-client
+notion-client
