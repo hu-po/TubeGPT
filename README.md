@@ -13,6 +13,7 @@ Dependencies and keys required:
 - Notion 🔑
 - Replicate 🔑
 - GoogleAPI 🔑
+- Midjourney + Discord 🔑
 - Fonts from https://fonts.google.com/
 - Arxiv API
 
@@ -33,10 +34,10 @@ This repo was built live on YouTube, you can find the playlist here:
 ## Citation
 
 ```
-@misc{hupo2023thumbnail,
-  title={Thumbnail: YouTube Assistant},
+@misc{hupo2023tubegpt,
+  title={TubeGPT: YouTube Assistant},
   author={Hugo Ponte},
   year={2023},
-  url={https://github.com/hu-po/thumbnail}
+  url={https://github.com/hu-po/TubeGPT}
 }
 ```
