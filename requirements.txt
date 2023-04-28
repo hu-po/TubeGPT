@@ -4,3 +4,4 @@ numpy
 arxiv
 google-api-python-client
 notion-client
+discord.py

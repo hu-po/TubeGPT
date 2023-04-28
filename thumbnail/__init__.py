@@ -60,3 +60,14 @@ except ImportError:
     log.warning('Notion API not installed (pip install notion-client)')
 except FileNotFoundError:
     log.warning('Notion API key not found. Some features may not work.')
+
+try:
+    from ops_discord import *
+    with open(os.path.join(KEYS_DIR, 'discord.txt'), 'r') as f:
+        _key = f.read()
+        os.environ['DISCORD_API_KEY'] = _key
+        DISCORD_API_KEY = _key
+except ImportError:
+    log.warning('Discord API not installed (pip install discord.py)')
+except FileNotFoundError:
+    log.warning('Discord API key not found. Some features may not work.')
