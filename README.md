@@ -1,4 +1,4 @@
-# Thumbnail
+# TubeGPT
 
 This repo is an assistant for YouTube creation. It can generates thumbnails, titles, descriptions.
 
