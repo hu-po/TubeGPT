@@ -1,19 +1,20 @@
 import os
 import gradio as gr
 import tubegpt
-# import tubegpt.tube_arxiv
-# import tubegpt.tube_discord
-# import tubegpt.tube_elevenlabs
-# import tubegpt.tube_github
-# import tubegpt.tube_google
-# import tubegpt.tube_notion
-# import tubegpt.tube_openai
-# import tubegpt.tube_pillow
-# import tubegpt.tube_replicate
+import tubegpt.tube_arxiv
+import tubegpt.tube_discord
+import tubegpt.tube_elevenlabs
+import tubegpt.tube_github
+import tubegpt.tube_google
+import tubegpt.tube_notion
+import tubegpt.tube_openai
+import tubegpt.tube_pillow
+import tubegpt.tube_replicate
 import logging
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
+
 
 def generate_texts(info, socials, title, hashtags):
     return f"{title}{info}{socials}{hashtags}"
@@ -67,17 +68,17 @@ http://instagram.com/gnocchibengal
 
 # Define the main GradIO UI
 with gr.Blocks() as demo:
-    log.info('Initializing TubeGPT ...')
-    
+    log.info("Initializing TubeGPT ...")
+
     # Directories for images, temporary files, API keys, etc
     root_dir = gr.State(value=os.path.dirname(os.path.abspath(__file__)))
-    log.info(f'Root directory: {root_dir}')
-    keys_dir = gr.State(value=os.path.join(root_dir.value, '.keys'))
-    log.info(f'Keys directory: {keys_dir}')
-    fonts_dir = gr.State(value=os.path.join(root_dir.value, 'fonts'))
-    log.info(f'Fonts directory: {fonts_dir}')
-    output_dir = gr.State(value=os.path.join(root_dir.value, 'data'))
-    log.info(f'Output directory: {output_dir}')
+    log.info(f"Root directory: {root_dir}")
+    keys_dir = gr.State(value=os.path.join(root_dir.value, ".keys"))
+    log.info(f"Keys directory: {keys_dir}")
+    fonts_dir = gr.State(value=os.path.join(root_dir.value, "fonts"))
+    log.info(f"Fonts directory: {fonts_dir}")
+    output_dir = gr.State(value=os.path.join(root_dir.value, "data"))
+    log.info(f"Output directory: {output_dir}")
 
     # Texts (Title, Descriptions, etc)
     texts_info = gr.State(value="")
@@ -102,9 +103,8 @@ with gr.Blocks() as demo:
             show_label=False,
             lines=1,
         )
-        _func = tubegpt.tube_arxiv.paper_blurb
         gr_arxiv_link_textbox.change(
-            _func, gr_arxiv_link_textbox, texts_info
+            tubegpt.tube_arxiv.paper_blurb, gr_arxiv_link_textbox, texts_info
         )
         with gr.Accordion("GPT Params", default_open=False):
             gr_model = gr.Dropdown(
@@ -113,11 +113,7 @@ with gr.Blocks() as demo:
                 value=gpt_model,
             )
             gr_max_tokens = gr.Slider(
-                minimum=1,
-                maximum=300,
-                value=gpt_max_tokens,
-                label="Max tokens",
-                step=1
+                minimum=1, maximum=300, value=gpt_max_tokens, label="Max tokens", step=1
             )
             gr_temperature = gr.Slider(
                 minimum=0.0,
@@ -155,7 +151,7 @@ with gr.Blocks() as demo:
         )
     with gr.Tab("Thumbnail"):
         gr_generate_fg_button = gr.Button(label="Generate Foreground")
-        
+
         # TODO: Add background image via upload
 
         # TODO: Jitter placement of forground/background/text
