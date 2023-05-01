@@ -17,16 +17,28 @@ from notion_client import Client
 from PIL import Image, ImageDraw, ImageFont
 
 
-def find_paper(url: str) -> arxiv.Result:
-    pattern = r"arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)"
-    match = re.search(pattern, url)
-    if match:
-        arxiv_id = match.group(1)
-        search = arxiv.Search(id_list=[arxiv_id])
-        paper = next(search.results())
-        return paper
-    else:
-        return None
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("tubegpt")
+# Set formatting
+formatter = logging.Formatter("📺|%(asctime)s|%(message)s")
+# Set up console handler
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+ch.setFormatter(formatter)
+log.addHandler(ch)
+# Set up file handler
+fh = logging.FileHandler("tubegpt.log")
+fh.setLevel(logging.DEBUG)
+fh.setFormatter(formatter)
+log.addHandler(fh)
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+log.info(f"ROOT_DIR: {ROOT_DIR}")
+KEYS_DIR = os.path.join(ROOT_DIR, ".keys")
+log.info(f"KEYS_DIR: {KEYS_DIR}")
+DATA_DIR = os.path.join(ROOT_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+log.info(f"DATA_DIR: {DATA_DIR}")
 
 def set_discord_key(key: str = None, keys_dir: str = None):
     if key is None:
@@ -38,15 +50,45 @@ def set_discord_key(key: str = None, keys_dir: str = None):
     os.environ["DISCORD_API_KEY"] = key
     log.info("Discord API key set.")
 
-def find_repo(url: str) -> arxiv.Result:
-    pattern = r"github.com/([^/]+)/([^/]+)"
-    match = re.search(pattern, url)
-    if match:
-        usr = match.group(0)
-        repo = match.group(1)
-        return usr, repo
-    else:
-        return None
+
+def set_replicate_key(key: str = None, keys_dir: str = None):
+    if key is None:
+        try:
+            with open(os.path.join(keys_dir, "replicate.txt"), "r") as f:
+                key = f.read()
+        except FileNotFoundError:
+            log.warning("Replicate API key not found. Some features may not work.")
+    os.environ["REPLICATE_API_TOKEN"] = key
+    log.info("Replicate API key set.")
+
+
+def set_openai_key(key: str = None, keys_dir: str = None):
+    if key is None:
+        try:
+            with open(os.path.join(keys_dir, "openai.txt"), "r") as f:
+                key = f.read()
+        except FileNotFoundError:
+            log.warning("OpenAI API key not found. Some features may not work.")
+    os.environ["OPENAI_API_KEY"] = key
+    openai.api_key = key
+    log.info("OpenAI API key set.")
+
+
+def set_notion_key(key: str = None, keys_dir: str = None):
+    if key is None:
+        try:
+            with open(os.path.join(keys_dir, "notion.txt"), "r") as f:
+                key = f.read()
+        except FileNotFoundError:
+            log.warning("Notion API key not found. Some features may not work.")
+    os.environ["NOTION_API_KEY"] = key
+    log.info("Notion API key set.")
+
+
+def set_database_id(database_id: str):
+    os.environ["NOTION_DATABASE_ID"] = database_id
+    log.info("Notion database ID set.")
+
 
 def set_google_key(key: str = None, keys_dir: str = None):
     if key is None:
@@ -57,6 +99,29 @@ def set_google_key(key: str = None, keys_dir: str = None):
             log.warning("Google API key not found. Some features may not work.")
     os.environ["GOOGLE_API_KEY"] = key
     log.info("Google API key set.")
+
+
+def find_paper(url: str) -> arxiv.Result:
+    pattern = r"arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)"
+    match = re.search(pattern, url)
+    if match:
+        arxiv_id = match.group(1)
+        search = arxiv.Search(id_list=[arxiv_id])
+        paper = next(search.results())
+        return paper
+    else:
+        return None
+
+
+def find_repo(url: str) -> arxiv.Result:
+    pattern = r"github.com/([^/]+)/([^/]+)"
+    match = re.search(pattern, url)
+    if match:
+        usr = match.group(0)
+        repo = match.group(1)
+        return usr, repo
+    else:
+        return None
 
 
 def get_video_info(video_id):
@@ -82,22 +147,6 @@ def get_video_hashtags_from_description(description):
     return hashtags
 
 
-def set_notion_key(key: str = None, keys_dir: str = None):
-    if key is None:
-        try:
-            with open(os.path.join(keys_dir, "notion.txt"), "r") as f:
-                key = f.read()
-        except FileNotFoundError:
-            log.warning("Notion API key not found. Some features may not work.")
-    os.environ["NOTION_API_KEY"] = key
-    log.info("Notion API key set.")
-
-
-def set_database_id(database_id: str):
-    os.environ["NOTION_DATABASE_ID"] = database_id
-    log.info("Notion database ID set.")
-
-
 def create_notion_page(paper):
     # Replace with the correct database ID
     notion = Client(auth=os.environ["NOTION_API_KEY"])
@@ -121,19 +170,6 @@ def create_notion_page(paper):
     notion.pages.create(
         parent={"database_id": os.environ["NOTION_DATABASE_ID"]}, properties=new_page
     )
-
-
-
-def set_openai_key(key: str = None, keys_dir: str = None):
-    if key is None:
-        try:
-            with open(os.path.join(keys_dir, "openai.txt"), "r") as f:
-                key = f.read()
-        except FileNotFoundError:
-            log.warning("OpenAI API key not found. Some features may not work.")
-    os.environ["OPENAI_API_KEY"] = key
-    openai.api_key = key
-    log.info("OpenAI API key set.")
 
 
 def gpt_text(
@@ -223,6 +259,7 @@ def gpt_image(
     image.save(output_path)
     return img_url, output_path
 
+
 def draw_text(
     image_path=None,
     output_path=None,
@@ -311,21 +348,6 @@ def stack_fgbg(
     final.save(output_path)
 
 
-
-log = logging.getLogger(__name__)
-
-
-def set_replicate_key(key: str = None, keys_dir: str = None):
-    if key is None:
-        try:
-            with open(os.path.join(keys_dir, "replicate.txt"), "r") as f:
-                key = f.read()
-        except FileNotFoundError:
-            log.warning("Replicate API key not found. Some features may not work.")
-    os.environ["REPLICATE_API_TOKEN"] = key
-    log.info("Replicate API key set.")
-
-
 def remove_bg(
     image_path=None,
     output_path=None,
@@ -404,13 +426,8 @@ ArXiV: {url}
     else:
         return None
 
-
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
-
-
 def parse_textbox(text):
-    cleantext = text.copy()
+    cleantext = text
     for url in gpt_text(
         prompt=" ".join(
             [
@@ -529,28 +546,18 @@ def generate_thumbnails(
 
 # Define the main GradIO UI
 with gr.Blocks() as demo:
+    log.info("Starting GradIO Frontend ...")
     gr.HTML(
         """
         <center>
-        <h1>TubeGPT</h1>
+        <h1>TubeGPT📺</h1>
         </center>
     """
     )
-    log.info("Initializing TubeGPT ...")
-
-    # Directories for images, temporary files, API keys, etc
-    root_dir = gr.State(value=os.path.dirname(os.path.abspath(__file__)))
-    log.info(f"Root directory: {root_dir.value}")
-    keys_dir = gr.State(value=os.path.join(root_dir.value, ".keys"))
-    log.info(f"Keys directory: {keys_dir.value}")
-    fonts_dir = gr.State(value=os.path.join(root_dir.value, "fonts"))
-    log.info(f"Fonts directory: {fonts_dir.value}")
-    output_dir = gr.State(value=os.path.join(root_dir.value, "data"))
-    log.info(f"Output directory: {output_dir.value}")
-
-    # Texts (Title, Descriptions, etc)
+    root_dir = gr.State(value=ROOT_DIR)
+    keys_dir = gr.State(value=KEYS_DIR)
+    data_dir = gr.State(value=DATA_DIR)
     texts_input = gr.State(value="")
-    texts_urls = gr.State(value="")
     texts_socials = gr.State(
         value="""
 Like 👍. Comment 💬. Subscribe 🟥.
@@ -569,17 +576,14 @@ http://instagram.com/gnocchibengal
     with gr.Tab("Texts"):
         # TODO: Accept any text and then parse it.
         gr_input_textbox = gr.Textbox(
-            placeholder="Paste the arXiv link here",
+            placeholder="Paste text here (arxiv, github, ...)",
             show_label=False,
             lines=1,
-            value=texts_input.value,
         )
-        gr_input_textbox.update(texts_input)
-        gr_parse_text_button = gr.Button(label="Parse Text")
-        gr_parse_text_button.click(
+        gr_input_textbox.change(
             parse_textbox,
             inputs=[gr_input_textbox],
-            outputs=[texts_urls],
+            outputs=[texts_input],
         )
         with gr.Accordion(
             label="GPT Settings",
@@ -651,7 +655,7 @@ http://instagram.com/gnocchibengal
         )
         gr_generate_fg_button.click(
             gpt_image,
-            inputs=[gr_fg_prompt_textbox, output_dir],
+            inputs=[gr_fg_prompt_textbox, data_dir],
             outputs=[gr_fg_image],
         )
         # Add background image
