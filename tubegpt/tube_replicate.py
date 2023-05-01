@@ -1,24 +1,27 @@
 import os
 from io import BytesIO
-
+import logging
 import replicate
 import requests
 from PIL import Image
 
-from . import DATA_DIR, KEYS_DIR, OUTPUT_DIR, log
+log = logging.getLogger(__name__)
 
-try:
-    with open(os.path.join(KEYS_DIR, "replicate.txt"), "r") as f:
-        _key = f.read()
-        os.environ["REPLICATE_API_TOKEN"] = _key
-        REPLICATE_API_TOKEN = _key
-except FileNotFoundError:
-    log.warning("Replicate API key not found. Some features may not work.")
+
+def set_replicate_key(key: str = None, keys_dir: str = None):
+    if key is None:
+        try:
+            with open(os.path.join(keys_dir, "replicate.txt"), "r") as f:
+                key = f.read()
+        except FileNotFoundError:
+            log.warning("Replicate API key not found. Some features may not work.")
+    os.environ["REPLICATE_API_TOKEN"] = key
+    log.info("Replicate API key set.")
 
 
 def remove_bg(
-    image_path=os.path.join(DATA_DIR, "test.png"),
-    output_path=os.path.join(OUTPUT_DIR, "test_nobg.png"),
+    image_path=None,
+    output_path=None,
 ):
     # use replicate api to remove background
     # need to have REPLICATE_API_KEY environment variable set

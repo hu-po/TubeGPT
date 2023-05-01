@@ -1,12 +1,11 @@
+import os
 import gradio as gr
-import tubegpt.tube_openai
 import tubegpt.tube_arxiv
+import tubegpt.tube_openai
+import logging
 
-tubegpt.tube_openai.set_key()
-
-
-def foo(foo):
-    print("foo")
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 def generate_texts(info, socials, title, hashtags):
@@ -61,13 +60,23 @@ http://instagram.com/gnocchibengal
 
 # Define the main GradIO UI
 with gr.Blocks() as demo:
-    num_tokens = gr.State(value=50)
+    log.info('Initializing TubeGPT ...')
+    
+    # Directories for images, temporary files, API keys, etc
+    root_dir = gr.State(value=os.path.dirname(os.path.abspath(__file__)))
+    log.info(f'Root directory: {root_dir}')
+    keys_dir = gr.State(value=os.path.join(root_dir, '.keys'))
+    log.info(f'Keys directory: {keys_dir}')
+    fonts_dir = gr.State(value=os.path.join(root_dir, 'fonts'))
+    log.info(f'Fonts directory: {fonts_dir}')
+    output_dir = gr.State(value=os.path.join(root_dir, 'data'))
+    log.info(f'Output directory: {output_dir}')
 
     # Texts (Title, Descriptions, etc)
     texts_info = gr.State(value="")
     texts_socials = gr.State(value=SOCIALS)
 
-    # GPT params
+    # Default GPT params
     gpt_max_tokens = gr.State(value=50)
     gpt_temperature = gr.State(value=0.6)
     gpt_model = gr.State(value="gpt-3.5-turbo")
@@ -81,7 +90,7 @@ with gr.Blocks() as demo:
     )
     with gr.Tab("Texts"):
         gr_arxiv_link_textbox = gr.Textbox(
-            value="https://arxiv.org/pdf/2106.04430.pdf",
+            # value="https://arxiv.org/pdf/2106.04430.pdf",
             placeholder="Paste the arXiv link here",
             show_label=False,
             lines=1,
@@ -137,11 +146,34 @@ with gr.Blocks() as demo:
             outputs=[gr_texts_textbox],
         )
     with gr.Tab("Thumbnail"):
-        gr_generate_button = gr.Button(label="Generate")
+        gr_generate_fg_button = gr.Button(label="Generate Foreground")
+        
+        # TODO: Add background image via upload
+
+        # TODO: Jitter placement of forground/background/text
+
         # gr_desc_gallery = gr.Gallery(
         #     label="Generated images", show_label=False, elem_id="gallery"
         # ).style(columns=[2], rows=[2], object_fit="contain", height="auto")
         # gr_generate_button.click(generate_desc, None, gr_desc_gallery)
+
+    with gr.Tab("Notion"):
+        # notion_database_id_textbox = gr.Textbox(
+        #     placeholder="Paste your Notion database ID here",
+        #     show_label=False,
+        #     lines=1,
+        #     type="password",
+        # )
+        # notion_database_id_textbox.change(
+        #     tubegpt.tube_notion.set_database_id, notion_database_id_textbox, None
+        # )
+        gr_planned_date_textbox = gr.Textbox(
+            placeholder="Paste the planned date here",
+            show_label=False,
+            lines=1,
+            type="date",
+        )
+        gr_export_notion_button = gr.Button(label="Export to Notion")
 
     with gr.Tab("Keys"):
         openai_api_key_textbox = gr.Textbox(
@@ -150,8 +182,11 @@ with gr.Blocks() as demo:
             lines=1,
             type="password",
         )
+        tubegpt.tube_openai.set_openai_key()
         openai_api_key_textbox.change(
-            tubegpt.tube_openai.set_key, openai_api_key_textbox, None
+            tubegpt.tube_openai.set_openai_key,
+            inputs=[openai_api_key_textbox, keys_dir],
+            outputs=[None],
         )
         # elevenlabs_api_key_textbox = gr.Textbox(
         #     placeholder="Paste your ElevenLabs API key here",
@@ -162,15 +197,15 @@ with gr.Blocks() as demo:
         # elevenlabs_api_key_textbox.change(
         #     tubegpt.tube_elevenlabs.set_key, elevenlabs_api_key_textbox, None
         # )
-        # replicate_api_key_textbox = gr.Textbox(
-        #     placeholder="Paste your Replicate API key here",
-        #     show_label=False,
-        #     lines=1,
-        #     type="password",
-        # )
-        # replicate_api_key_textbox.change(
-        #     tubegpt.tube_replicate.set_key, replicate_api_key_textbox, None
-        # )
+        replicate_api_key_textbox = gr.Textbox(
+            placeholder="Paste your Replicate API key here",
+            show_label=False,
+            lines=1,
+            type="password",
+        )
+        replicate_api_key_textbox.change(
+            tubegpt.tube_replicate.set_replicate_key, replicate_api_key_textbox, None
+        )
         # discord_api_key_textbox = gr.Textbox(
         #     placeholder="Paste your Discord API key here",
         #     show_label=False,
@@ -188,15 +223,6 @@ with gr.Blocks() as demo:
         # )
         # notion_api_key_textbox.change(
         #     tubegpt.tube_notion.set_key, notion_api_key_textbox, None
-        # )
-        # notion_database_id_textbox = gr.Textbox(
-        #     placeholder="Paste your Notion database ID here",
-        #     show_label=False,
-        #     lines=1,
-        #     type="password",
-        # )
-        # notion_database_id_textbox.change(
-        #     tubegpt.tube_notion.set_database_id, notion_database_id_textbox, None
         # )
         # google_api_key_textbox = gr.Textbox(
         #     placeholder="Paste your Google API key here",
@@ -218,9 +244,6 @@ with gr.Blocks() as demo:
         </center>
         """
     )
-
-    # Key textboxes
-
 
 if __name__ == "__main__":
     demo.launch()

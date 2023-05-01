@@ -1,24 +1,24 @@
 import os
 from io import BytesIO
 from typing import Dict, List, Union
-
+import logging
 import openai
 import requests
 from PIL import Image
 
-from . import log, DATA_DIR, KEYS_DIR, OUTPUT_DIR
+log = logging.getLogger(__name__)
 
 
-def set_key(key: str = None):
+def set_openai_key(key: str = None, keys_dir: str = None):
     if key is None:
         try:
-            with open(os.path.join(KEYS_DIR, "openai.txt"), "r") as f:
+            with open(os.path.join(keys_dir, "openai.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
             log.warning("OpenAI API key not found. Some features may not work.")
     os.environ["OPENAI_API_KEY"] = key
     openai.api_key = key
-    log.info('OpenAI API key set.')
+    log.info("OpenAI API key set.")
 
 
 def gpt_text(
@@ -35,6 +35,7 @@ def gpt_text(
         prompt = []
     if system is not None:
         prompt = [{"role": "system", "content": system}] + prompt
+    log.debug(f"Function call to GPT {model}: \n {prompt}")
     response = openai.ChatCompletion.create(
         messages=prompt,
         model=model,
@@ -73,7 +74,7 @@ def gpt_color():
         assert len(rgb) == 3
         rgb = tuple([int(x) for x in rgb])
         assert all([0 <= x <= 256 for x in rgb])
-    except:
+    except Exception:
         color_name = "black"
         rgb = (0, 0, 0)
     return rgb, color_name
@@ -82,11 +83,12 @@ def gpt_color():
 def gpt_image(
     prompt: str = None,
     n: int = 1,
-    image_path=os.path.join(DATA_DIR, "test.png"),
-    output_path=os.path.join(OUTPUT_DIR, "test.png"),
+    image_path=None,
+    output_path=None,
     image_size: str = "1024x1024",
 ):
     if prompt is None:
+        log.debug(f"Image variation call to GPT: \n {image_path}")
         response = openai.Image.create_variation(
             image=open(image_path, "rb"),
             n=n,
@@ -94,12 +96,14 @@ def gpt_image(
         )
         img_url = response["data"][0]["url"]
     else:
+        log.debug(f"Image call to GPT with: \n {prompt}")
         response = openai.Image.create(
             prompt=prompt,
             n=n,
             size=image_size,
         )
         img_url = response["data"][0]["url"]
-    # save output image
     image = Image.open(BytesIO(requests.get(img_url).content))
+    # save output image
     image.save(output_path)
+    return img_url, output_path

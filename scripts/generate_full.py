@@ -11,7 +11,7 @@ from tubegpt.google import (
 )
 from tubegpt.pillow import draw_text, resize_bg, stack_fgbg
 from tubegpt.tube_openai import gpt_color, gpt_image, gpt_text
-from tubegpt.replicate import remove_bg
+from tubegpt.tube_replicate import remove_bg
 
 desired_sentence = """In this stream we review the paper: "A Method for Animating Children's Drawings of the Human Figure" out of Meta AI Research.
 

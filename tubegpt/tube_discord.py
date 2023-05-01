@@ -4,7 +4,6 @@ from . import KEYS_DIR, log
 
 try:
     import discord
-
     with open(os.path.join(KEYS_DIR, "discord.txt"), "r") as f:
         _key = f.read()
         os.environ["DISCORD_API_KEY"] = _key
