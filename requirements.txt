@@ -7,3 +7,4 @@ notion-client
 discord.py
 Pillow
 gradio
+PyGithub

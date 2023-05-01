@@ -9,7 +9,7 @@ from tubegpt.google import (
     get_video_info,
     get_video_sentence_from_description,
 )
-from tubegpt.pillow import draw_text, resize_bg, stack_fgbg
+from tubegpt.tube_pillow import draw_text, resize_bg, stack_fgbg
 from tubegpt.tube_openai import gpt_color, gpt_image, gpt_text
 from tubegpt.tube_replicate import remove_bg
 

@@ -1,22 +1,22 @@
 import os
-
+import logging
 from PIL import Image, ImageDraw, ImageFont
 
-from . import DATA_DIR, FONTS_DIR, OUTPUT_DIR
-
+log = logging.getLogger(__name__)
 
 def draw_text(
-    image_path=os.path.join(DATA_DIR, "test.png"),
-    output_path=os.path.join(OUTPUT_DIR, "test_text.png"),
+    image_path=None,
+    output_path=None,
     text="Hello World",
     text_color=(255, 255, 255),
     font="Exo2-Bold",
     font_size=72,
+    font_dir=None,
     rectangle_color=(0, 0, 0),
     rectangle_padding=20,
 ):
     # choose file based on font name from font dir
-    font_path = os.path.join(FONTS_DIR, font + ".ttf")
+    font_path = os.path.join(font_dir, font + ".ttf")
     font = ImageFont.truetype(font_path, font_size)
     # draw text on image
     image = Image.open(image_path)
@@ -41,8 +41,8 @@ def draw_text(
 
 
 def resize_bg(
-    image_path=os.path.join(DATA_DIR, "example_graphs.png"),
-    output_path=os.path.join(OUTPUT_DIR, "example_graphs_resized.png"),
+    image_path=None,
+    output_path=None,
     canvas_size=(1280, 720),
 ):
     img = Image.open(image_path)
@@ -67,9 +67,9 @@ def resize_bg(
 
 
 def stack_fgbg(
-    fg_image_path=os.path.join(DATA_DIR, "bu.1.1.nobg", "test_bu_nobg.png"),
-    bg_image_path=os.path.join(DATA_DIR, "bg.16.9", "test_bg.png"),
-    output_path=os.path.join(OUTPUT_DIR, "test_nobg.png"),
+    fg_image_path=None,
+    bg_image_path=None,
+    output_path=None,
     # output image size,
     bg_size=(1280, 720),
     fg_size=(420, 420),

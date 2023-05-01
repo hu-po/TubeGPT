@@ -1,7 +1,6 @@
 import os
 import gradio as gr
-import tubegpt.tube_arxiv
-import tubegpt.tube_openai
+import tubegpt
 import logging
 
 log = logging.getLogger(__name__)
@@ -65,11 +64,11 @@ with gr.Blocks() as demo:
     # Directories for images, temporary files, API keys, etc
     root_dir = gr.State(value=os.path.dirname(os.path.abspath(__file__)))
     log.info(f'Root directory: {root_dir}')
-    keys_dir = gr.State(value=os.path.join(root_dir, '.keys'))
+    keys_dir = gr.State(value=os.path.join(root_dir.value, '.keys'))
     log.info(f'Keys directory: {keys_dir}')
-    fonts_dir = gr.State(value=os.path.join(root_dir, 'fonts'))
+    fonts_dir = gr.State(value=os.path.join(root_dir.value, 'fonts'))
     log.info(f'Fonts directory: {fonts_dir}')
-    output_dir = gr.State(value=os.path.join(root_dir, 'data'))
+    output_dir = gr.State(value=os.path.join(root_dir.value, 'data'))
     log.info(f'Output directory: {output_dir}')
 
     # Texts (Title, Descriptions, etc)
@@ -158,15 +157,15 @@ with gr.Blocks() as demo:
         # gr_generate_button.click(generate_desc, None, gr_desc_gallery)
 
     with gr.Tab("Notion"):
-        # notion_database_id_textbox = gr.Textbox(
-        #     placeholder="Paste your Notion database ID here",
-        #     show_label=False,
-        #     lines=1,
-        #     type="password",
-        # )
-        # notion_database_id_textbox.change(
-        #     tubegpt.tube_notion.set_database_id, notion_database_id_textbox, None
-        # )
+        notion_database_id_textbox = gr.Textbox(
+            placeholder="Paste your Notion database ID here",
+            show_label=False,
+            lines=1,
+            type="password",
+        )
+        notion_database_id_textbox.change(
+            tubegpt.set_database_id, notion_database_id_textbox, None
+        )
         gr_planned_date_textbox = gr.Textbox(
             placeholder="Paste the planned date here",
             show_label=False,

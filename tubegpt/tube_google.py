@@ -1,17 +1,20 @@
 import os
-
+import logging
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from . import KEYS_DIR, log
+log = logging.getLogger(__name__)
 
-try:
-    with open(os.path.join(KEYS_DIR, "google.txt"), "r") as f:
-        _key = f.read()
-        os.environ["GOOGLE_API_KEY"] = _key
-        GOOGLE_API_KEY = _key
-except FileNotFoundError:
-    log.warning("Google API key not found. Some features may not work.")
+
+def set_google_key(key: str = None, keys_dir: str = None):
+    if key is None:
+        try:
+            with open(os.path.join(keys_dir, "google.txt"), "r") as f:
+                key = f.read()
+        except FileNotFoundError:
+            log.warning("Google API key not found. Some features may not work.")
+    os.environ["GOOGLE_API_KEY"] = key
+    log.info("Google API key set.")
 
 
 def get_video_info(video_id):

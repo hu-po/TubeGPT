@@ -1,17 +1,25 @@
 import os
+import logging
+import discord
 
-from . import KEYS_DIR, log
+log = logging.getLogger(__name__)
 
-try:
-    import discord
-    with open(os.path.join(KEYS_DIR, "discord.txt"), "r") as f:
-        _key = f.read()
-        os.environ["DISCORD_API_KEY"] = _key
-        DISCORD_API_KEY = _key
-except ImportError:
-    log.warning("Discord API not installed (pip install discord.py)")
-except FileNotFoundError:
-    log.warning("Discord API key not found. Some features may not work.")
+def set_discord_key(key: str = None, keys_dir: str = None):
+    if key is None:
+        try:
+            with open(os.path.join(keys_dir, "discord.txt"), "r") as f:
+                key = f.read()
+        except FileNotFoundError:
+            log.warning("Discord API key not found. Some features may not work.")
+    os.environ["DISCORD_API_KEY"] = key
+    log.info("Discord API key set.")
+
+
+def send_discord():
+    intents = discord.Intents.default()
+    intents.message_content = True
+    client = MyClient(intents=intents)
+    client.run(os.environ["DISCORD_API_KEY"])
 
 
 class MyClient(discord.Client):
@@ -27,7 +35,3 @@ class MyClient(discord.Client):
             await message.channel.send("pong")
 
 
-intents = discord.Intents.default()
-intents.message_content = True
-client = MyClient(intents=intents)
-client.run(DISCORD_API_KEY)
