@@ -6,17 +6,17 @@ from . import DATA_DIR, FONTS_DIR, OUTPUT_DIR
 
 
 def draw_text(
-    image_path = os.path.join(DATA_DIR, 'test.png'),
-    output_path = os.path.join(OUTPUT_DIR, 'test_text.png'),
-    text = 'Hello World',
-    text_color = (255, 255, 255),
-    font = 'Exo2-Bold',
-    font_size = 72,
-    rectangle_color = (0, 0, 0),
-    rectangle_padding = 20,
+    image_path=os.path.join(DATA_DIR, "test.png"),
+    output_path=os.path.join(OUTPUT_DIR, "test_text.png"),
+    text="Hello World",
+    text_color=(255, 255, 255),
+    font="Exo2-Bold",
+    font_size=72,
+    rectangle_color=(0, 0, 0),
+    rectangle_padding=20,
 ):
     # choose file based on font name from font dir
-    font_path = os.path.join(FONTS_DIR, font + '.ttf')
+    font_path = os.path.join(FONTS_DIR, font + ".ttf")
     font = ImageFont.truetype(font_path, font_size)
     # draw text on image
     image = Image.open(image_path)
@@ -25,22 +25,25 @@ def draw_text(
     # Calculate the position to center the text
     x = (image.size[0] - text_width) / 2
     y = (image.size[1] - text_height) / 2
-    
+
     # Draw a solid colored rectangle behind the text
     rectangle_x1 = x - rectangle_padding
     rectangle_y1 = y - rectangle_padding
     rectangle_x2 = x + text_width + rectangle_padding
     rectangle_y2 = y + text_height + rectangle_padding
-    draw.rectangle([rectangle_x1, rectangle_y1, rectangle_x2, rectangle_y2], fill=rectangle_color)
-    
+    draw.rectangle(
+        [rectangle_x1, rectangle_y1, rectangle_x2, rectangle_y2], fill=rectangle_color
+    )
+
     # Render the text
     draw.text((x, y), text, fill=text_color, font=font)
     image.save(output_path)
 
+
 def resize_bg(
-    image_path = os.path.join(DATA_DIR, 'example_graphs.png'),
-    output_path = os.path.join(OUTPUT_DIR, 'example_graphs_resized.png'),
-    canvas_size = (1280, 720),
+    image_path=os.path.join(DATA_DIR, "example_graphs.png"),
+    output_path=os.path.join(OUTPUT_DIR, "example_graphs_resized.png"),
+    canvas_size=(1280, 720),
 ):
     img = Image.open(image_path)
     # Keep aspect ratio, resize width to fit
@@ -50,7 +53,7 @@ def resize_bg(
     resized_image = img.resize((new_width, new_height), Image.ANTIALIAS)
 
     # Create a new canvas with the desired size, transparent background
-    canvas = Image.new('RGBA', canvas_size, (0, 0, 0, 0))
+    canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
 
     # Center the resized image on the canvas
     paste_position = (
@@ -62,13 +65,14 @@ def resize_bg(
     # Save the result
     canvas.save(output_path)
 
+
 def stack_fgbg(
-    fg_image_path = os.path.join(DATA_DIR, 'bu.1.1.nobg', 'test_bu_nobg.png'),
-    bg_image_path = os.path.join(DATA_DIR, 'bg.16.9', 'test_bg.png'),
-    output_path = os.path.join(OUTPUT_DIR, 'test_nobg.png'),
+    fg_image_path=os.path.join(DATA_DIR, "bu.1.1.nobg", "test_bu_nobg.png"),
+    bg_image_path=os.path.join(DATA_DIR, "bg.16.9", "test_bg.png"),
+    output_path=os.path.join(OUTPUT_DIR, "test_nobg.png"),
     # output image size,
-    bg_size = (1280, 720),
-    fg_size = (420, 420),
+    bg_size=(1280, 720),
+    fg_size=(420, 420),
 ):
     # load images
     fg_image = Image.open(fg_image_path)
