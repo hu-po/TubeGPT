@@ -1,11 +1,19 @@
 import os
 import gradio as gr
 import tubegpt
+# import tubegpt.tube_arxiv
+# import tubegpt.tube_discord
+# import tubegpt.tube_elevenlabs
+# import tubegpt.tube_github
+# import tubegpt.tube_google
+# import tubegpt.tube_notion
+# import tubegpt.tube_openai
+# import tubegpt.tube_pillow
+# import tubegpt.tube_replicate
 import logging
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
-
 
 def generate_texts(info, socials, title, hashtags):
     return f"{title}{info}{socials}{hashtags}"
@@ -94,8 +102,9 @@ with gr.Blocks() as demo:
             show_label=False,
             lines=1,
         )
+        _func = tubegpt.tube_arxiv.paper_blurb
         gr_arxiv_link_textbox.change(
-            tubegpt.tube_arxiv.paper_blurb, gr_arxiv_link_textbox, texts_info
+            _func, gr_arxiv_link_textbox, texts_info
         )
         with gr.Accordion("GPT Params", default_open=False):
             gr_model = gr.Dropdown(
@@ -164,7 +173,7 @@ with gr.Blocks() as demo:
             type="password",
         )
         notion_database_id_textbox.change(
-            tubegpt.set_database_id, notion_database_id_textbox, None
+            tubegpt.tube_notion.set_database_id, notion_database_id_textbox, None
         )
         gr_planned_date_textbox = gr.Textbox(
             placeholder="Paste the planned date here",
