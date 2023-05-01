@@ -10,10 +10,10 @@ def foo(foo):
 
 
 def generate_texts(info, socials, title, hashtags):
-    return f"""{title}{info}{socials}{hashtags}"
+    return f"{title}{info}{socials}{hashtags}"
 
 
-def generate_texts_title(prompt):
+def generate_texts_title(prompt, max_tokens, temperature, model):
     return tubegpt.tube_openai.gpt_text(
         prompt=prompt,
         system=" ".join(
@@ -23,11 +23,13 @@ def generate_texts_title(prompt):
                 "Respond with the title only: no extra text or explanations.",
             ]
         ),
-        temperature=0.6,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        model=model,
     )
 
 
-def generate_texts_hashtags(prompt):
+def generate_texts_hashtags(prompt, max_tokens, temperature, model):
     return tubegpt.tube_openai.gpt_text(
         prompt=prompt,
         system=" ".join(
@@ -37,7 +39,9 @@ def generate_texts_hashtags(prompt):
                 "Respond with the hashtags only: no extra text or explanations.",
             ]
         ),
-        temperature=0.6,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        model=model,
     )
 
 
@@ -63,6 +67,11 @@ with gr.Blocks() as demo:
     texts_info = gr.State(value="")
     texts_socials = gr.State(value=SOCIALS)
 
+    # GPT params
+    gpt_max_tokens = gr.State(value=50)
+    gpt_temperature = gr.State(value=0.6)
+    gpt_model = gr.State(value="gpt-3.5-turbo")
+
     gr.HTML(
         """
         <center>
@@ -80,12 +89,31 @@ with gr.Blocks() as demo:
         gr_arxiv_link_textbox.change(
             tubegpt.tube_arxiv.paper_blurb, gr_arxiv_link_textbox, texts_info
         )
+        with gr.Accordion("GPT Params", default_open=False):
+            gr_model = gr.Dropdown(
+                choices=["gpt-3.5-turbo", "gpt-4"],
+                label="GPT Model behind conversation",
+                value=gpt_model,
+            )
+            gr_max_tokens = gr.Slider(
+                minimum=1,
+                maximum=300,
+                value=gpt_max_tokens,
+                label="Max tokens",
+                step=1
+            )
+            gr_temperature = gr.Slider(
+                minimum=0.0,
+                maximum=1.0,
+                value=gpt_temperature,
+                label="Temperature",
+            )
         with gr.Row():
             gr_texts_title_button = gr.Button(value="Make Title")
             gr_texts_title_textbox = gr.Textbox()
             gr_texts_title_button.click(
                 generate_texts_title,
-                inputs=[texts_info],
+                inputs=[texts_info, gr_max_tokens, gr_temperature, gr_model],
                 outputs=[gr_texts_title_textbox],
             )
         with gr.Row():
@@ -93,7 +121,7 @@ with gr.Blocks() as demo:
             gr_texts_hashtags_textbox = gr.Textbox()
             gr_texts_hashtags_button.click(
                 generate_texts_hashtags,
-                inputs=[texts_info],
+                inputs=[texts_info, gr_max_tokens, gr_temperature, gr_model],
                 outputs=[gr_texts_hashtags_textbox],
             )
         gr_generate_texts_button = gr.Button(value="Combine")
@@ -108,21 +136,6 @@ with gr.Blocks() as demo:
             ],
             outputs=[gr_texts_textbox],
         )
-
-        # gr_model = gr.Dropdown(
-        #     choices=["gpt-3.5-turbo", "gpt-4"],
-        #     label="GPT Model behind conversation",
-        #     value=STATE.model,
-        # )
-        # gr_max_tokens = gr.Slider(
-        #     minimum=1, maximum=500, value=STATE.max_tokens, label="Max tokens", step=1
-        # )
-        # gr_temperature = gr.Slider(
-        #     minimum=0.0,
-        #     maximum=1.0,
-        #     value=STATE.temperature,
-        #     label="Temperature (randomness in conversation)",
-        # )
     with gr.Tab("Thumbnail"):
         gr_generate_button = gr.Button(label="Generate")
         # gr_desc_gallery = gr.Gallery(
