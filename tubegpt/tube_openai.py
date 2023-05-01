@@ -6,16 +6,19 @@ import openai
 import requests
 from PIL import Image
 
-from . import DATA_DIR, KEYS_DIR, OUTPUT_DIR, log
+from . import log, DATA_DIR, KEYS_DIR, OUTPUT_DIR
 
-try:
-    with open(os.path.join(KEYS_DIR, "openai.txt"), "r") as f:
-        _key = f.read()
-        os.environ["OPENAI_API_KEY"] = _key
-        openai.api_key = _key
-        OPENAI_API_KEY = _key
-except FileNotFoundError:
-    log.warning("OpenAI API key not found. Some features may not work.")
+
+def set_key(key: str = None):
+    if key is None:
+        try:
+            with open(os.path.join(KEYS_DIR, "openai.txt"), "r") as f:
+                key = f.read()
+        except FileNotFoundError:
+            log.warning("OpenAI API key not found. Some features may not work.")
+    os.environ["OPENAI_API_KEY"] = key
+    openai.api_key = key
+    log.info('OpenAI API key set.')
 
 
 def gpt_text(

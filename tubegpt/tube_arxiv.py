@@ -23,10 +23,12 @@ def paper_blurb(url: str) -> str:
         published : str = paper.published.strftime("%m/%d/%Y")
         url : str = paper.pdf_url
         blurb: str = f"""
+----
 {title}
 {", ".join(authors)}
 Released on {published}
 ArXiV: {url}
+----
         """
         return blurb
     else:
