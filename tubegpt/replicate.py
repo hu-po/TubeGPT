@@ -5,7 +5,15 @@ import replicate
 import requests
 from PIL import Image
 
-from . import DATA_DIR, OUTPUT_DIR
+from . import log, DATA_DIR, OUTPUT_DIR, KEYS_DIR
+
+try:
+    with open(os.path.join(KEYS_DIR, 'replicate.txt'), 'r') as f:
+        _key = f.read()
+        os.environ['REPLICATE_API_TOKEN'] = _key
+        REPLICATE_API_TOKEN = _key
+except FileNotFoundError:
+    log.warning('Replicate API key not found. Some features may not work.')
 
 
 def remove_bg(

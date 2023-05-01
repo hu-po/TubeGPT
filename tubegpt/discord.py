@@ -1,6 +1,17 @@
-import discord
+import os
 
-from . import DISCORD_API_KEY
+from . import KEYS_DIR, log
+
+try:
+    import discord
+    with open(os.path.join(KEYS_DIR, 'discord.txt'), 'r') as f:
+        _key = f.read()
+        os.environ['DISCORD_API_KEY'] = _key
+        DISCORD_API_KEY = _key
+except ImportError:
+    log.warning('Discord API not installed (pip install discord.py)')
+except FileNotFoundError:
+    log.warning('Discord API key not found. Some features may not work.')
 
 class MyClient(discord.Client):
     async def on_ready(self):

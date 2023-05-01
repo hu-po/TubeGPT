@@ -1,8 +1,17 @@
 import os
 
 from notion_client import Client
+from . import log, KEYS_DIR
 
-notion = Client(auth=os.environ["NOTION_API_KEY"])
+try:
+    with open(os.path.join(KEYS_DIR, 'notion.txt'), 'r') as f:
+        _key = f.read()
+        os.environ['NOTION_API_KEY'] = _key
+        NOTION_API_KEY = _key
+        notion = Client(auth=_key)
+except FileNotFoundError:
+    log.warning('Notion API key not found. Some features may not work.')
+    
 
 def create_notion_page(paper):
     # Replace with the correct database ID
