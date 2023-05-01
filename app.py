@@ -171,11 +171,11 @@ with gr.Blocks() as demo:
         notion_database_id_textbox.change(
             tubegpt.tube_notion.set_database_id, notion_database_id_textbox, None
         )
+        # TODO: Planned date with gpt fuzzy match
         gr_planned_date_textbox = gr.Textbox(
             placeholder="Paste the planned date here",
             show_label=False,
             lines=1,
-            type="date",
         )
         gr_export_notion_button = gr.Button(label="Export to Notion")
 

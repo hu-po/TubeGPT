@@ -1,10 +1,9 @@
 import os
 import logging
-import notion
+from notion_client import Client
 
 log = logging.getLogger(__name__)
 
-NOTION_DATABASE_ID = "your_database_id"
 
 def set_notion_key(key: str = None, keys_dir: str = None):
     if key is None:
@@ -16,15 +15,15 @@ def set_notion_key(key: str = None, keys_dir: str = None):
     os.environ["NOTION_API_KEY"] = key
     log.info("Notion API key set.")
 
+
 def set_database_id(database_id: str):
-    global NOTION_DATABASE_ID
-    NOTION_DATABASE_ID = database_id
+    os.environ["NOTION_DATABASE_ID"] = database_id
     log.info("Notion database ID set.")
 
 
 def create_notion_page(paper):
     # Replace with the correct database ID
-    global NOTION_DATABASE_ID
+    notion = Client(auth=os.environ["NOTION_API_KEY"])
     new_page = {
         "Name": {"title": [{"text": {"content": paper.title}}]},
         "Authors": {
@@ -42,4 +41,6 @@ def create_notion_page(paper):
         "Abstract": {"rich_text": [{"text": {"content": paper.summary}}]},
     }
 
-    notion.pages.create(parent={"database_id": NOTION_DATABASE_ID}, properties=new_page)
+    notion.pages.create(
+        parent={"database_id": os.environ["NOTION_DATABASE_ID"]}, properties=new_page
+    )
