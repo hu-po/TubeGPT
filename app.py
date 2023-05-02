@@ -5,6 +5,7 @@ import uuid
 from io import BytesIO
 from typing import Dict, List, Union
 
+import numpy as np
 import arxiv
 import discord
 import gradio as gr
@@ -233,32 +234,24 @@ def gpt_color():
 
 
 def gpt_image(
-    prompt: str = None,
+    prompt: str,
+    data_dir: str,
     n: int = 1,
-    image_path=None,
-    output_path=None,
-    image_size: str = "1024x1024",
+    image_size: str = "512x512",
 ):
-    if prompt is None:
-        log.debug(f"Image variation call to GPT: \n {image_path}")
-        response = openai.Image.create_variation(
-            image=open(image_path, "rb"),
-            n=n,
-            size=image_size,
-        )
-        img_url = response["data"][0]["url"]
-    else:
-        log.debug(f"Image call to GPT with: \n {prompt}")
-        response = openai.Image.create(
-            prompt=prompt,
-            n=n,
-            size=image_size,
-        )
-        img_url = response["data"][0]["url"]
+    log.debug(f"Image call to GPT with: \n {prompt}")
+    response = openai.Image.create(
+        prompt=prompt,
+        n=n,
+        size=image_size,
+    )
+    img_url = response["data"][0]["url"]
     image = Image.open(BytesIO(requests.get(img_url).content))
-    # save output image
-    image.save(output_path)
-    return img_url, output_path
+    # Output path for original image
+    image_name = uuid.uuid4()
+    image_path = os.path.join(data_dir, f"{image_name}.png")
+    image.save(image_path)
+    return image_path
 
 
 def draw_text(
@@ -266,14 +259,11 @@ def draw_text(
     output_path=None,
     text="Hello World",
     text_color=(255, 255, 255),
-    font="Exo2-Bold",
+    font_path=None,
     font_size=72,
-    font_dir=None,
     rectangle_color=(0, 0, 0),
     rectangle_padding=20,
 ):
-    # choose file based on font name from font dir
-    font_path = os.path.join(font_dir, font + ".ttf")
     font = ImageFont.truetype(font_path, font_size)
     # draw text on image
     image = Image.open(image_path)
@@ -298,11 +288,15 @@ def draw_text(
 
 
 def resize_bg(
+    img=None,
     image_path=None,
     output_path=None,
     canvas_size=(1280, 720),
 ):
-    img = Image.open(image_path)
+    if img is None:
+        img = Image.open(image_path)
+    else:
+        img = Image.fromarray(img)
     # Keep aspect ratio, resize width to fit
     width, height = img.size
     new_width = canvas_size[0]
@@ -324,35 +318,51 @@ def resize_bg(
 
 
 def stack_fgbg(
-    fg_image_path=None,
-    bg_image_path=None,
+    fg_image: np.ndarray = None,
+    bg_image: np.ndarray = None,
+    fg_image_path: str=None,
+    bg_image_path: str=None,
     output_path=None,
-    # output image size,
     bg_size=(1280, 720),
     fg_size=(420, 420),
 ):
     # load images
-    fg_image = Image.open(fg_image_path)
-    bg_image = Image.open(bg_image_path)
+    if fg_image is None:
+        fg_image = Image.open(fg_image_path)
+    else:
+        fg_image = Image.fromarray(fg_image)
+    if bg_image is None:
+        bg_image = Image.open(bg_image_path)
+    else:
+        bg_image = Image.fromarray(bg_image)
     # resize images
     fg_image = fg_image.resize(fg_size)
     bg_image = bg_image.resize(bg_size)
+    # Add alpha channel to foreground
+    fg_image = fg_image.convert("RGBA")
     # Upper left corner of the foreground such that it sits in the lower left corner of background
     x = 0
     y = bg_size[1] - fg_size[1]
     # Final image
-    fg_image_full = Image.new("RGBA", bg_size)
-    fg_image_full.paste(fg_image, (x, y), fg_image)
-    final = Image.alpha_composite(bg_image, fg_image_full)
+    image_full = Image.new("RGBA", bg_size)
+    image_full.paste(fg_image, (x, y), fg_image)
+    final = Image.alpha_composite(bg_image, image_full)
     # paste images, account for alpha channel
     # save output image
     final.save(output_path)
 
 
 def remove_bg(
-    image_path=None,
-    output_path=None,
+    image: np.ndarray = None,
+    data_dir: str = None,
+    image_path: str=None,
+    output_path: str=None,
 ):
+    # Temporary file location for image
+    if image is not None:
+        image_path = os.path.join(data_dir, f"{uuid.uuid4()}.png")
+        image = Image.fromarray(image)
+        image.save(image_path)
     # use replicate api to remove background
     # need to have REPLICATE_API_KEY environment variable set
     img_url = replicate.run(
@@ -423,6 +433,7 @@ def paper_blurb(paper: arxiv.Result) -> str:
 """
     return blurb
 
+
 def parse_textbox(text):
     references = ""
     hashtags = ""
@@ -492,67 +503,50 @@ def generate_texts_hashtags(
 
 
 def generate_thumbnails(
-    prompt: str,
-    input_image_path: str,
-    output_tmp_dir: str,
-    output_dir: str,
+    data_dir: str,
+    gr_fg_image: str,
+    gr_bg_image: str,
     title: str,
-    n: int = 1,
+    font_path: str,
+    font_size: int,
+    rect_color: str,
+    rect_padding: int,
 ):
-    fg_prompt = gpt_text(
-        prompt=prompt,
-        system=" ".join(
-            [
-                "You generate variations of string prompts for image generation.",
-                f"Respond with {n} new variants of the user prompt. ",
-                "Do not explain, respond with the prompts only.",
-            ]
-        ),
-    )
-
-    # Foreground image remove background
-    fg_img_name = str(uuid.uuid4())
-    gpt_image(
-        prompt=fg_prompt,
-        output_path=os.path.join(output_tmp_dir, f"{fg_img_name}.png"),
-        image_size="512x512",
-    )
+    image_name = str(uuid.uuid4())
+    # Remove foreground background with replicate
+    image_nobg_path = os.path.join(data_dir, f"{image_name}_nobg.png")
     remove_bg(
-        image_path=os.path.join(output_tmp_dir, f"{fg_img_name}.png"),
-        output_path=os.path.join(output_tmp_dir, f"{fg_img_name}_nobg.png"),
+        image=gr_fg_image,
+        data_dir=data_dir,
+        output_path=image_nobg_path,
     )
-
-    # Background image
-    bg_img_name = str(uuid.uuid4())
+    # resize background
     resize_bg(
-        image_path=input_image_path,
-        output_path=os.path.join(output_tmp_dir, f"{bg_img_name}.png"),
+        img=gr_bg_image,
+        output_path=os.path.join(data_dir, f"{image_name}.png"),
         canvas_size=(1280, 720),
     )
-
-    text_rgb, text_color = gpt_color()
-    rect_rgb, rect_color = gpt_color()
-
-    # Write text on top of image
+    # Convert hex color to rgb
+    rect_color = tuple(int(rect_color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
     draw_text(
-        image_path=os.path.join(output_tmp_dir, f"{bg_img_name}.png"),
-        output_path=os.path.join(output_tmp_dir, f"{bg_img_name}_text.png"),
+        image_path=os.path.join(data_dir, f"{image_name}.png"),
+        output_path=os.path.join(data_dir, f"{image_name}_text.png"),
         text=title,
-        text_color=text_rgb,
-        font_size=60,
-        rectangle_color=rect_rgb,
-        rectangle_padding=20,
+        text_color=(0, 0, 0),
+        font_size=font_size,
+        font_path=font_path,
+        rectangle_color=rect_color,
+        rectangle_padding=rect_padding,
     )
-
-    # Stack foreground and background
-    combo_image_name = str(uuid.uuid4())
+    image_path = os.path.join(data_dir, f"{image_name}_final.png")
     stack_fgbg(
-        fg_image_path=os.path.join(output_tmp_dir, f"{fg_img_name}_nobg.png"),
-        bg_image_path=os.path.join(output_tmp_dir, f"{bg_img_name}_text.png"),
-        output_path=os.path.join(output_dir, f"{combo_image_name}.png"),
+        fg_image_path=image_nobg_path,
+        bg_image_path=os.path.join(data_dir, f"{image_name}_text.png"),
+        output_path=image_path,
         bg_size=(1280, 720),
-        fg_size=(420, 420),
+        fg_size=(512, 512),
     )
+    return image_path
 
 
 # Define the main GradIO UI
@@ -579,6 +573,8 @@ Like 👍. Comment 💬. Subscribe 🟥.
     texts_references = gr.State(value="")
     texts_hashtags = gr.State(value="")
     with gr.Tab("Texts"):
+        # TODO: Scrape information from paper sources
+        # TODO: List/recommend specific paper sources
         # TODO: Accept any text and then parse it.
         gr_input_textbox = gr.Textbox(
             placeholder="Paste text here (arxiv, github, ...)",
@@ -659,26 +655,90 @@ Like 👍. Comment 💬. Subscribe 🟥.
             outputs=[gr_texts_textbox],
         )
     with gr.Tab("Thumbnail"):
-        with gr.Row():
-            gr_generate_fg_button = gr.Button(label="Generate Foreground")
-            gr_fg_prompt_textbox = gr.Textbox(
-                placeholder="portrait of white bengal cat with blue eyes",
-                show_label=False,
-                lines=1,
-            )
-        gr_fg_image = gr.Image(
-            label="Foreground",
+        gr_data_dir_textbox = gr.Textbox(
+            label="Local Data Directory",
+            show_label=True,
+            lines=1,
+            value=data_dir.value,
+        )
+        gr_bg_image = gr.Image(
+            label="Background",
             image_mode="RGB",
         )
+        with gr.Row():
+            gr_fg_image = gr.Image(
+                label="Foreground",
+                image_mode="RGB",
+            )
+            with gr.Column():
+                gr_generate_fg_button = gr.Button(value="Generate Foreground")
+                gr_fg_prompt_textbox = gr.Textbox(
+                    placeholder="Foreground Prompt",
+                    show_label=False,
+                    lines=1,
+                    value = "portrait of a blue eyed white bengal cat"
+                )
         gr_generate_fg_button.click(
             gpt_image,
             inputs=[gr_fg_prompt_textbox, data_dir],
             outputs=[gr_fg_image],
         )
-        # Add background image
-        gr_bg_image = gr.Image(
-            label="Background",
+        with gr.Row():
+            gr_combine_button = gr.Button(value="Combine")
+            with gr.Accordion(
+                label="Text Settings",
+                open=False,
+            ):
+                rect_color = gr.State(value="#64dbf1")
+                rect_padding = gr.State(value=20)
+                font_path = gr.State(
+                    value=os.path.join(data_dir.value, "RobotoMono-VariableFont_wght.ttf"))
+                font_size = gr.State(value=72)
+
+                gr_color_picker = gr.ColorPicker(
+                    label="Rectangle Color",
+                    value="#64dbf1",
+                )
+                gr_color_picker.update(rect_color)
+                gr_font_path = gr.File(
+                    label="Font",
+                    accept=".ttf",
+                    value=font_path.value,
+                )
+                gr_font_path.update(font_path)
+                gr_font_size = gr.Slider(
+                    minimum=50,
+                    maximum=120,
+                    value=font_size.value,
+                    label="Font Size",
+                    step=1,
+                )
+                gr_font_size.update(font_size)
+                gr_rect_padding = gr.Slider(
+                    minimum=0,
+                    maximum=100,
+                    value=rect_padding.value,
+                    label="Rectangle Padding",
+                    step=1,
+                )
+                gr_rect_padding.update(rect_padding)
+        gr_combined_image = gr.Image(
+            label="Combined",
             image_mode="RGB",
+        )
+        gr_combine_button.click(
+            generate_thumbnails,
+            inputs=[
+                data_dir,
+                gr_fg_image,
+                gr_bg_image,
+                texts_title,
+                font_path,
+                font_size,
+                rect_color,
+                rect_padding,
+            ],
+            outputs=[gr_combined_image],
         )
 
         # TODO: Jitter placement of forground/background/text
