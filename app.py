@@ -1,11 +1,12 @@
-import datetime
 import logging
+import datetime
 import os
 import random
 import re
 import uuid
 from io import BytesIO
 from typing import Dict, List, Union
+import time
 
 import arxiv
 import discord
@@ -149,36 +150,36 @@ def create_notion_page(
     database_name: str,
     title: str,
     text: str,
-    thumbnail: np.ndarray,
+    date: str,
 ):
     notion = Client(auth=os.environ["NOTION_API_KEY"])
+
     # Get the database
     query_filter = {"property": "object", "value": "database"}
     response = notion.search(query=database_name, filter=query_filter).get("results")
+    database_id = response[0]["id"]
 
-    database_id = None
-    for database in response:
-        if database["title"][0]["text"]["content"] == database_name:
-            database_id = database["id"]
-
+    # Create the pages
+    _emoji = gpt_emoji(title)[0]
     notion.pages.create(
         parent={"database_id": database_id},
+        icon={
+            "type": "emoji",
+            "emoji": _emoji,
+        },
         properties={
             "Name": {
                 "title": [
                     {
                         "text": {
                             "content": title,
-                        },
-                        "emoji": {
-                            "name": gpt_emoji(title),
-                        },
+                        }
                     }
                 ]
             },
             "Date": {
                 "date": {
-                    "start": str(datetime.datetime.now().date()),
+                    "start": date,
                 }
             },
             "Platform": {
@@ -196,31 +197,31 @@ def create_notion_page(
         },
     )
 
+    # Sleep to let the page be created
+    time.sleep(5)
+
     # Get the page
     query_filter = {"property": "object", "value": "page"}
     response = notion.search(query=title, filter=query_filter).get("results")
+    page_id = response[0]['id']
 
-    page_id = None
-    for page in response:
-        if page["properties"]["Name"]["title"][0]["text"]["content"] == title:
-            page_id = page["id"]
-    
-    # Add text to the page
+    # Add text to the page as a code block
     notion.blocks.children.append(
         block_id=page_id,
         children=[
             {
                 "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "text": [
+                "type": "code",
+                "code": {
+                    "language": "python",
+                    "rich_text": [
                         {
-                            "type": "code",
+                            "type": "text",
                             "text": {
                                 "content": text,
                             },
                         }
-                    ]
+                    ],
                 },
             }
         ],
@@ -259,7 +260,9 @@ def gpt_emoji(prompt):
             system=" ".join(
                 [
                     "Respond with a single emoji based on the user prompt.",
-                    "Do not explain, respond with the emoji only",
+                    "Respond with only basic original emoji.",
+                    "Respond with only one emoji.",
+                    "Do not explain, respond with the single emoji only.",
                 ]
             ),
             temperature=0.3,
@@ -804,27 +807,17 @@ with gr.Blocks() as demo:
             ],
             outputs=[gr_combined_image],
         )
-
-        # TODO: Jitter placement of forground/background/text
-
-        # gr_desc_gallery = gr.Gallery(
-        #     label="Generated images", show_label=False, elem_id="gallery"
-        # ).style(columns=[2], rows=[2], object_fit="contain", height="auto")
-        # gr_generate_button.click(generate_desc, None, gr_desc_gallery)
-
     with gr.Tab("Notion"):
         notion_database_textbox = gr.Textbox(
-            Label="Notion Database Name",
-            show_label=False,
+            label="Notion Database Name",
             lines=1,
             value="Content Calendar",
         )
-        # # TODO: Planned date with gpt fuzzy match
-        # gr_planned_date_textbox = gr.Textbox(
-        #     placeholder="Paste the planned date here",
-        #     show_label=False,
-        #     lines=1,
-        # )
+        gr_planned_date_textbox = gr.Textbox(
+            label="Planned Date",
+            lines=1,
+            value=str(datetime.datetime.now().date()),
+        )
         gr_export_notion_button = gr.Button(label="Export to Notion")
         gr_export_notion_button.click(
             create_notion_page,
@@ -832,7 +825,7 @@ with gr.Blocks() as demo:
                 notion_database_textbox,
                 gr_texts_title_textbox,
                 gr_texts_textbox,
-                gr_combined_image,
+                gr_planned_date_textbox,
             ],
         )
 
