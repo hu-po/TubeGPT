@@ -87,11 +87,6 @@ def set_notion_key(key: str = None, keys_dir: str = None):
     log.info("Notion API key set.")
 
 
-def set_database_id(database_id: str):
-    os.environ["NOTION_DATABASE_ID"] = database_id
-    log.info("Notion database ID set.")
-
-
 def set_google_key(key: str = None, keys_dir: str = None):
     if key is None:
         try:
@@ -149,28 +144,62 @@ def get_video_hashtags_from_description(description):
     return hashtags
 
 
-def create_notion_page(paper):
-    # Replace with the correct database ID
+def create_notion_page(
+    database_name: str,
+    title: str,
+    text: str,
+    thumbnail: np.ndarray,
+):
     notion = Client(auth=os.environ["NOTION_API_KEY"])
-    new_page = {
-        "Name": {"title": [{"text": {"content": paper.title}}]},
-        "Authors": {
-            "rich_text": [
-                {
-                    "text": {
-                        "content": ", ".join([author.name for author in paper.authors])
-                    }
-                }
-            ]
-        },
-        "arXiv ID": {
-            "rich_text": [{"text": {"content": paper.entry_id.split("/")[-1]}}]
-        },
-        "Abstract": {"rich_text": [{"text": {"content": paper.summary}}]},
+    # Get the database
+    query_filter = {
+        "property": "object",
+        "value": "database"
     }
+    response = notion.search(
+        query=database_name,
+        filter=query_filter).get("results")
+
+    database_id = None
+    for database in response:
+        if database["title"][0]["text"]["content"] == database_name:
+            database_id = database["id"]
 
     notion.pages.create(
-        parent={"database_id": os.environ["NOTION_DATABASE_ID"]}, properties=new_page
+        parent={"database_id": database_id},
+        properties={
+            "Name": {
+                "title": [
+                    {
+                        "text": {
+                            "content": title,
+                        }
+                    }
+                ]
+            },
+            "Platform": {
+                "multi_select": [
+                    {
+                        "name": "YT Live"
+                    },
+                ]
+            },
+            "Status": {
+                "status": {
+                    "name": "Planning"
+                }
+            },
+            "Type": {
+                "multi_select": [
+                    {
+                        "name": "Code"
+                    },
+                    {
+                        "name": "Paper"
+                    },
+                ]
+            },
+    }
     )
 
 
@@ -737,22 +766,28 @@ with gr.Blocks() as demo:
         # gr_generate_button.click(generate_desc, None, gr_desc_gallery)
 
     with gr.Tab("Notion"):
-        notion_database_id_textbox = gr.Textbox(
-            placeholder="Paste your Notion database ID here",
+        notion_database_textbox = gr.Textbox(
+            Label="Notion Database Name",
             show_label=False,
             lines=1,
-            type="password",
+            value="Content Calendar",
         )
-        notion_database_id_textbox.change(
-            set_database_id, notion_database_id_textbox, None
-        )
-        # TODO: Planned date with gpt fuzzy match
-        gr_planned_date_textbox = gr.Textbox(
-            placeholder="Paste the planned date here",
-            show_label=False,
-            lines=1,
-        )
+        # # TODO: Planned date with gpt fuzzy match
+        # gr_planned_date_textbox = gr.Textbox(
+        #     placeholder="Paste the planned date here",
+        #     show_label=False,
+        #     lines=1,
+        # )
         gr_export_notion_button = gr.Button(label="Export to Notion")
+        gr_export_notion_button.click(
+            create_notion_page,
+            inputs=[
+                notion_database_textbox,
+                gr_texts_title_textbox,
+                gr_texts_textbox,
+                gr_combined_image,
+            ],
+        )
 
     with gr.Tab("Keys"):
         openai_api_key_textbox = gr.Textbox(
@@ -777,6 +812,17 @@ with gr.Blocks() as demo:
             inputs=[replicate_api_key_textbox, keys_dir],
         )
         set_replicate_key(None, keys_dir.value)
+        notion_api_key_textbox = gr.Textbox(
+            placeholder="Paste your Notion API key here",
+            show_label=False,
+            lines=1,
+            type="password",
+        )
+        notion_api_key_textbox.change(
+            set_notion_key,
+            inputs=[notion_api_key_textbox, keys_dir],
+        )
+        set_notion_key(None, keys_dir.value)
 
     gr.HTML(
         """
