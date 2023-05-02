@@ -11,7 +11,6 @@ import time
 import arxiv
 import discord
 import gradio as gr
-import numpy as np
 import openai
 import replicate
 import requests
@@ -44,10 +43,10 @@ os.makedirs(DATA_DIR, exist_ok=True)
 log.info(f"DATA_DIR: {DATA_DIR}")
 
 
-def set_discord_key(key: str = None, keys_dir: str = None):
+def set_discord_key(key=None):
     if key is None:
         try:
-            with open(os.path.join(keys_dir, "discord.txt"), "r") as f:
+            with open(os.path.join(KEYS_DIR, "discord.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
             log.warning("Discord API key not found. Some features may not work.")
@@ -55,10 +54,10 @@ def set_discord_key(key: str = None, keys_dir: str = None):
     log.info("Discord API key set.")
 
 
-def set_replicate_key(key: str = None, keys_dir: str = None):
+def set_replicate_key(key=None):
     if key is None:
         try:
-            with open(os.path.join(keys_dir, "replicate.txt"), "r") as f:
+            with open(os.path.join(KEYS_DIR, "replicate.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
             log.warning("Replicate API key not found. Some features may not work.")
@@ -66,10 +65,10 @@ def set_replicate_key(key: str = None, keys_dir: str = None):
     log.info("Replicate API key set.")
 
 
-def set_openai_key(key: str = None, keys_dir: str = None):
+def set_openai_key(key=None):
     if key is None:
         try:
-            with open(os.path.join(keys_dir, "openai.txt"), "r") as f:
+            with open(os.path.join(KEYS_DIR, "openai.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
             log.warning("OpenAI API key not found. Some features may not work.")
@@ -78,10 +77,10 @@ def set_openai_key(key: str = None, keys_dir: str = None):
     log.info("OpenAI API key set.")
 
 
-def set_notion_key(key: str = None, keys_dir: str = None):
+def set_notion_key(key=None):
     if key is None:
         try:
-            with open(os.path.join(keys_dir, "notion.txt"), "r") as f:
+            with open(os.path.join(KEYS_DIR, "notion.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
             log.warning("Notion API key not found. Some features may not work.")
@@ -89,10 +88,10 @@ def set_notion_key(key: str = None, keys_dir: str = None):
     log.info("Notion API key set.")
 
 
-def set_google_key(key: str = None, keys_dir: str = None):
+def set_google_key(key=None):
     if key is None:
         try:
-            with open(os.path.join(keys_dir, "google.txt"), "r") as f:
+            with open(os.path.join(KEYS_DIR, "google.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
             log.warning("Google API key not found. Some features may not work.")
@@ -203,7 +202,7 @@ def create_notion_page(
     # Get the page
     query_filter = {"property": "object", "value": "page"}
     response = notion.search(query=title, filter=query_filter).get("results")
-    page_id = response[0]['id']
+    page_id = response[0]["id"]
 
     # Add text to the page as a code block
     notion.blocks.children.append(
@@ -230,8 +229,8 @@ def create_notion_page(
 
 def gpt_text(
     prompt: Union[str, List[Dict[str, str]]] = None,
-    system: str = None,
-    model: str = "gpt-3.5-turbo",
+    system=None,
+    model="gpt-3.5-turbo",
     temperature: float = 0.6,
     max_tokens: int = 32,
     stop: List[str] = ["\n"],
@@ -308,9 +307,8 @@ def gpt_color():
 
 def gpt_image(
     prompt: str,
-    data_dir: str,
     n: int = 1,
-    image_size: str = "512x512",
+    image_size="512x512",
 ):
     log.debug(f"Image call to GPT with: \n {prompt}")
     response = openai.Image.create(
@@ -322,7 +320,7 @@ def gpt_image(
     image = Image.open(BytesIO(requests.get(img_url).content))
     # Output path for original image
     image_name = uuid.uuid4()
-    image_path = os.path.join(data_dir, f"{image_name}.png")
+    image_path = os.path.join(DATA_DIR, f"{image_name}.png")
     image.save(image_path)
     return image_path
 
@@ -385,9 +383,9 @@ def resize_bg(
 
 
 def stack_fgbg(
-    fg_image: np.ndarray = None,
-    mask_image: np.ndarray = None,
-    bg_image: np.ndarray = None,
+    fg_image=None,
+    mask_image=None,
+    bg_image=None,
     bg_image_path=None,
     output_path=None,
     bg_size=(1280, 720),
@@ -423,14 +421,13 @@ def stack_fgbg(
 
 
 def remove_bg(
-    image: np.ndarray = None,
-    data_dir: str = None,
-    image_path: str = None,
-    output_path: str = None,
+    image=None,
+    image_path=None,
+    output_path=None,
 ):
     # Temporary file location for image
     if image is not None:
-        image_path = os.path.join(data_dir, f"{uuid.uuid4()}.png")
+        image_path = os.path.join(DATA_DIR, f"{uuid.uuid4()}.png")
         image = Image.fromarray(image)
         image.save(image_path)
     # use replicate api to remove background
@@ -461,7 +458,7 @@ def repo_blurb(url: str) -> str:
     _ = find_repo(url)
     if _:
         usr, repo = _
-        blurb: str = f"""
+        blurb = f"""
 ***** ⌨️ GitHub Repo *****
 {url}
 {usr} - {repo}
@@ -493,11 +490,11 @@ class MyClient(discord.Client):
 
 
 def paper_blurb(paper: arxiv.Result) -> str:
-    title: str = paper.title
+    title = paper.title
     authors: List[str] = [author.name for author in paper.authors]
-    published: str = paper.published.strftime("%m/%d/%Y")
-    url: str = paper.pdf_url
-    blurb: str = f"""
+    published = paper.published.strftime("%m/%d/%Y")
+    url = paper.pdf_url
+    blurb = f"""
 ----- 📝 ArXiV -----
 {url}
 {title}
@@ -573,7 +570,6 @@ def generate_texts_hashtags(title, hashtags, max_tokens, temperature, model):
 
 
 def generate_thumbnails(
-    data_dir: str,
     fg_image: str,
     fg_mask_image: str,
     bg_image: str,
@@ -585,7 +581,7 @@ def generate_thumbnails(
     rect_padding: int,
 ):
     image_name = str(uuid.uuid4())
-    bg_image_path = os.path.join(data_dir, f"{image_name}_bg.png")
+    bg_image_path = os.path.join(DATA_DIR, f"{image_name}_bg.png")
     resize_bg(
         image=bg_image,
         output_path=bg_image_path,
@@ -593,7 +589,7 @@ def generate_thumbnails(
     # Convert hex color to rgb
     rect_color = tuple(int(rect_color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
     font_color = tuple(int(font_color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
-    bg_image_text_path = os.path.join(data_dir, f"{image_name}_text.png")
+    bg_image_text_path = os.path.join(DATA_DIR, f"{image_name}_text.png")
     draw_text(
         image_path=bg_image_path,
         output_path=bg_image_text_path,
@@ -604,7 +600,7 @@ def generate_thumbnails(
         rectangle_color=rect_color,
         rectangle_padding=rect_padding,
     )
-    image_path = os.path.join(data_dir, f"{image_name}_final.png")
+    image_path = os.path.join(DATA_DIR, f"{image_name}_final.png")
     stack_fgbg(
         fg_image=fg_image,
         mask_image=fg_mask_image,
@@ -617,16 +613,13 @@ def generate_thumbnails(
 # Define the main GradIO UI
 with gr.Blocks() as demo:
     gr.Markdown(
-"""
+        """
 # TubeGPT 📺
 
 This AI tool helps you create YouTube videos. Start by finding a cool paper [Twitter List](https://twitter.com/i/lists/1653485531546767361), [PapersWithCode](https://paperswithcode.com/), [Reddit Feed](https://www.reddit.com/user/deephugs/m/ml/), [Arxiv Sanity](http://www.arxiv-sanity.com/)
 """
     )
     log.info("Starting GradIO Frontend ...")
-    root_dir = gr.State(value=ROOT_DIR)
-    keys_dir = gr.State(value=KEYS_DIR)
-    data_dir = gr.State(value=DATA_DIR)
     texts_text = gr.State(
         value="""Like 👍. Comment 💬. Subscribe 🟥.
 🏘 Discord: https://discord.gg/XKgVSxB6dE
@@ -712,12 +705,6 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
             outputs=[gr_texts_textbox],
         )
     with gr.Tab("Thumbnail"):
-        gr_data_dir_textbox = gr.Textbox(
-            label="Local Data Directory",
-            show_label=True,
-            lines=1,
-            value=data_dir.value,
-        )
         gr_bg_image = gr.Image(
             label="Background",
             image_mode="RGB",
@@ -737,7 +724,7 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
                 )
         gr_generate_fg_button.click(
             gpt_image,
-            inputs=[gr_fg_prompt_textbox, data_dir],
+            inputs=[gr_fg_prompt_textbox],
             outputs=[gr_fg_image],
         )
         with gr.Row():
@@ -749,7 +736,7 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
                 gr_make_mask_button = gr.Button(value="Make Mask")
         gr_make_mask_button.click(
             remove_bg,
-            inputs=[gr_fg_image, data_dir],
+            inputs=[gr_fg_image],
             outputs=[gr_mask_image],
         )
         with gr.Row():
@@ -769,9 +756,7 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
                     )
                 gr_font_path = gr.File(
                     label="Font",
-                    value=os.path.join(
-                        data_dir.value, "RobotoMono-SemiBold.ttf"
-                    ),
+                    value=os.path.join(DATA_DIR, "RobotoMono-SemiBold.ttf"),
                 )
                 gr_font_size = gr.Slider(
                     minimum=50,
@@ -794,7 +779,6 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
         gr_combine_button.click(
             generate_thumbnails,
             inputs=[
-                data_dir,
                 gr_fg_image,
                 gr_mask_image,
                 gr_bg_image,
@@ -838,9 +822,9 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
         )
         openai_api_key_textbox.change(
             set_openai_key,
-            inputs=[openai_api_key_textbox, keys_dir],
+            inputs=[openai_api_key_textbox],
         )
-        set_openai_key(None, keys_dir.value)
+        set_openai_key()
         replicate_api_key_textbox = gr.Textbox(
             placeholder="Paste your Replicate API key here",
             show_label=False,
@@ -849,9 +833,9 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
         )
         replicate_api_key_textbox.change(
             set_replicate_key,
-            inputs=[replicate_api_key_textbox, keys_dir],
+            inputs=[replicate_api_key_textbox],
         )
-        set_replicate_key(None, keys_dir.value)
+        set_replicate_key()
         notion_api_key_textbox = gr.Textbox(
             placeholder="Paste your Notion API key here",
             show_label=False,
@@ -860,9 +844,9 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
         )
         notion_api_key_textbox.change(
             set_notion_key,
-            inputs=[notion_api_key_textbox, keys_dir],
+            inputs=[notion_api_key_textbox],
         )
-        set_notion_key(None, keys_dir.value)
+        set_notion_key()
 
     gr.HTML(
         """
