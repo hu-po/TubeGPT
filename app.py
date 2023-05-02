@@ -40,6 +40,7 @@ DATA_DIR = os.path.join(ROOT_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 log.info(f"DATA_DIR: {DATA_DIR}")
 
+
 def set_discord_key(key: str = None, keys_dir: str = None):
     if key is None:
         try:
@@ -377,11 +378,11 @@ def repo_blurb(url: str) -> str:
     if _:
         usr, repo = _
         blurb: str = f"""
-***** Code *****
-{repo}
+***** ⌨️ GitHub Repo *****
 {url}
-****************
-        """
+{usr} - {repo}
+*************************
+"""
         return blurb
     else:
         return None
@@ -407,27 +408,25 @@ class MyClient(discord.Client):
             await message.channel.send("pong")
 
 
-def paper_blurb(url: str) -> str:
-    paper: arxiv.Result = find_paper(url)
-    if paper:
-        title: str = paper.title
-        authors: List[str] = [author.name for author in paper.authors]
-        published: str = paper.published.strftime("%m/%d/%Y")
-        url: str = paper.pdf_url
-        blurb: str = f"""
------ Paper -----
+def paper_blurb(paper: arxiv.Result) -> str:
+    title: str = paper.title
+    authors: List[str] = [author.name for author in paper.authors]
+    published: str = paper.published.strftime("%m/%d/%Y")
+    url: str = paper.pdf_url
+    blurb: str = f"""
+----- 📝 ArXiV -----
+{url}
 {title}
+{published}
 {", ".join(authors)}
-Released on {published}
-ArXiV: {url}
------------------
-        """
-        return blurb
-    else:
-        return None
+--------------------
+"""
+    return blurb
 
 def parse_textbox(text):
-    cleantext = text
+    references = ""
+    hashtags = ""
+    title = ""
     for url in gpt_text(
         prompt=" ".join(
             [
@@ -438,46 +437,58 @@ def parse_textbox(text):
         ),
     ).split(","):
         if find_paper(url):
-            cleantext += paper_blurb(url)
+            paper: arxiv.Result = find_paper(url)
+            references += paper_blurb(paper)
+            title += paper.title
+            if "#arxiv" not in hashtags:
+                hashtags += "#arxiv "
         if find_repo(url):
-            cleantext += repo_blurb(url)
-    return cleantext
+            references += repo_blurb(url)
+            if "#github" not in hashtags:
+                hashtags += "#github "
+    return references, hashtags, title
 
 
-def combine_texts(info, socials, title, hashtags):
-    return f"{title}{info}{socials}{hashtags}"
+def combine_texts(text, references, hashtags):
+    return f"{text}{references}{hashtags}"
 
 
-def generate_texts_title(prompt, max_tokens, temperature, model):
-    return gpt_text(
-        prompt=prompt,
+def generate_texts_title(new_title, cur_title, max_tokens, temperature, model):
+    title = gpt_text(
+        prompt=f"{new_title} {cur_title}",
         system=" ".join(
             [
-                "You create titles for YouTube videos.",
-                "Respond with a short title that best fits the description.",
-                "Respond with the title only: no extra text or explanations.",
+                "Modify the given title for a YouTube video.",
+                "Add or remove some words.",
+                "Do not explain, answer with the title only.",
             ]
         ),
         temperature=temperature,
         max_tokens=max_tokens,
         model=model,
     )
+    return title, title
 
 
-def generate_texts_hashtags(prompt, max_tokens, temperature, model):
-    return gpt_text(
-        prompt=prompt,
+def generate_texts_hashtags(
+    cur_title, new_hashtags, cur_hashtags, max_tokens, temperature, model
+):
+    hashtags = gpt_text(
+        prompt=f"{new_hashtags} {cur_hashtags}",
         system=" ".join(
             [
-                "You create hashtags for YouTube videos.",
-                "Respond with up to 4 hashtags that match the user prompt.",
-                "Respond with the hashtags only: no extra text or explanations.",
+                "Modify the given hashtags for a YouTube video.",
+                "Add or remove some hashtags.",
+                "There must be exactly 5 hastags.",
+                "Do not explain, respond with the hashtags only.",
+                f"The YouTube video is titled {cur_title}",
             ]
         ),
         temperature=temperature,
         max_tokens=max_tokens,
         model=model,
     )
+    return hashtags, hashtags
 
 
 def generate_thumbnails(
@@ -558,21 +569,15 @@ with gr.Blocks() as demo:
     keys_dir = gr.State(value=KEYS_DIR)
     data_dir = gr.State(value=DATA_DIR)
     texts_input = gr.State(value="")
-    texts_socials = gr.State(
+    texts_title = gr.State(value="")
+    texts_text = gr.State(
         value="""
 Like 👍. Comment 💬. Subscribe 🟥.
-
-⌨️ GitHub
-https://github.com/hu-po
-
-🗨️ Discord
-https://discord.gg/XKgVSxB6dE
-
-📸 Instagram
-http://instagram.com/gnocchibengal
-
+🏘 Discord: https://discord.gg/XKgVSxB6dE
 """
     )
+    texts_references = gr.State(value="")
+    texts_hashtags = gr.State(value="")
     with gr.Tab("Texts"):
         # TODO: Accept any text and then parse it.
         gr_input_textbox = gr.Textbox(
@@ -583,7 +588,7 @@ http://instagram.com/gnocchibengal
         gr_input_textbox.change(
             parse_textbox,
             inputs=[gr_input_textbox],
-            outputs=[texts_input],
+            outputs=[texts_references, texts_hashtags, texts_title],
         )
         with gr.Accordion(
             label="GPT Settings",
@@ -618,25 +623,37 @@ http://instagram.com/gnocchibengal
             gr_texts_title_textbox = gr.Textbox(show_label=False)
             gr_texts_title_button.click(
                 generate_texts_title,
-                inputs=[texts_input, gr_max_tokens, gr_temperature, gr_model],
-                outputs=[gr_texts_title_textbox],
+                inputs=[
+                    gr_texts_title_textbox,
+                    texts_title,
+                    gr_max_tokens,
+                    gr_temperature,
+                    gr_model,
+                ],
+                outputs=[gr_texts_title_textbox, texts_title],
             )
         with gr.Row():
             gr_texts_hashtags_button = gr.Button(value="Make Hashtags")
             gr_texts_hashtags_textbox = gr.Textbox(show_label=False)
             gr_texts_hashtags_button.click(
                 generate_texts_hashtags,
-                inputs=[texts_input, gr_max_tokens, gr_temperature, gr_model],
-                outputs=[gr_texts_hashtags_textbox],
+                inputs=[
+                    texts_title,
+                    gr_texts_hashtags_textbox,
+                    texts_hashtags,
+                    gr_max_tokens,
+                    gr_temperature,
+                    gr_model,
+                ],
+                outputs=[gr_texts_hashtags_textbox, texts_hashtags],
             )
         gr_generate_texts_button = gr.Button(value="Combine")
         gr_texts_textbox = gr.Textbox(label="Copy Paste into YouTube")
         gr_generate_texts_button.click(
             combine_texts,
             inputs=[
-                texts_input,
-                texts_socials,
-                gr_texts_title_textbox,
+                texts_text,
+                texts_references,
                 gr_texts_hashtags_textbox,
             ],
             outputs=[gr_texts_textbox],
