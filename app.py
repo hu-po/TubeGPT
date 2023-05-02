@@ -464,9 +464,9 @@ def combine_texts(text, references, hashtags):
     return f"{text}{references}{hashtags}"
 
 
-def generate_texts_title(new_title, cur_title, max_tokens, temperature, model):
-    title = gpt_text(
-        prompt=f"{new_title} {cur_title}",
+def generate_texts_title(title, max_tokens, temperature, model):
+    return gpt_text(
+        prompt=f"{title}",
         system=" ".join(
             [
                 "Modify the given title for a YouTube video.",
@@ -478,28 +478,26 @@ def generate_texts_title(new_title, cur_title, max_tokens, temperature, model):
         max_tokens=max_tokens,
         model=model,
     )
-    return title, title
 
 
 def generate_texts_hashtags(
-    cur_title, new_hashtags, cur_hashtags, max_tokens, temperature, model
+    title, hashtags, max_tokens, temperature, model
 ):
-    hashtags = gpt_text(
-        prompt=f"{new_hashtags} {cur_hashtags}",
+    return gpt_text(
+        prompt=hashtags,
         system=" ".join(
             [
                 "Modify the given hashtags for a YouTube video.",
                 "Add or remove some hashtags.",
                 "There must be exactly 5 hastags.",
                 "Do not explain, respond with the hashtags only.",
-                f"The YouTube video is titled {cur_title}",
+                f"The YouTube video is titled {title}",
             ]
         ),
         temperature=temperature,
         max_tokens=max_tokens,
         model=model,
     )
-    return hashtags, hashtags
 
 
 def generate_thumbnails(
@@ -534,7 +532,7 @@ def generate_thumbnails(
         text=title,
         text_color=(0, 0, 0),
         font_size=font_size,
-        font_path=font_path,
+        font_path=font_path.name,
         rectangle_color=rect_color,
         rectangle_padding=rect_padding,
     )
@@ -562,8 +560,6 @@ with gr.Blocks() as demo:
     root_dir = gr.State(value=ROOT_DIR)
     keys_dir = gr.State(value=KEYS_DIR)
     data_dir = gr.State(value=DATA_DIR)
-    texts_input = gr.State(value="")
-    texts_title = gr.State(value="")
     texts_text = gr.State(
         value="""
 Like 👍. Comment 💬. Subscribe 🟥.
@@ -571,7 +567,6 @@ Like 👍. Comment 💬. Subscribe 🟥.
 """
     )
     texts_references = gr.State(value="")
-    texts_hashtags = gr.State(value="")
     with gr.Tab("Texts"):
         # TODO: Scrape information from paper sources
         # TODO: List/recommend specific paper sources
@@ -581,39 +576,28 @@ Like 👍. Comment 💬. Subscribe 🟥.
             show_label=False,
             lines=1,
         )
-        gr_input_textbox.change(
-            parse_textbox,
-            inputs=[gr_input_textbox],
-            outputs=[texts_references, texts_hashtags, texts_title],
-        )
         with gr.Accordion(
             label="GPT Settings",
             open=False,
         ):
-            gpt_model = gr.State("gpt-3.5-turbo")
-            gpt_max_tokens = gr.State(value=50)
-            gpt_temperature = gr.State(value=0.7)
             gr_model = gr.Dropdown(
                 choices=["gpt-3.5-turbo", "gpt-4"],
                 label="GPT Model behind conversation",
-                value=gpt_model.value,
+                value="gpt-3.5-turbo",
             )
-            gr_model.update(gpt_model)
             gr_max_tokens = gr.Slider(
                 minimum=1,
                 maximum=300,
-                value=gpt_max_tokens.value,
+                value=50,
                 label="max tokens",
                 step=1,
             )
-            gr_max_tokens.update(gpt_max_tokens)
             gr_temperature = gr.Slider(
                 minimum=0.0,
                 maximum=1.0,
-                value=gpt_temperature.value,
+                value=0.7,
                 label="Temperature",
             )
-            gr_temperature.update(gpt_temperature)
         with gr.Row():
             gr_texts_title_button = gr.Button(value="Make Title")
             gr_texts_title_textbox = gr.Textbox(show_label=False)
@@ -621,12 +605,11 @@ Like 👍. Comment 💬. Subscribe 🟥.
                 generate_texts_title,
                 inputs=[
                     gr_texts_title_textbox,
-                    texts_title,
                     gr_max_tokens,
                     gr_temperature,
                     gr_model,
                 ],
-                outputs=[gr_texts_title_textbox, texts_title],
+                outputs=[gr_texts_title_textbox],
             )
         with gr.Row():
             gr_texts_hashtags_button = gr.Button(value="Make Hashtags")
@@ -634,21 +617,25 @@ Like 👍. Comment 💬. Subscribe 🟥.
             gr_texts_hashtags_button.click(
                 generate_texts_hashtags,
                 inputs=[
-                    texts_title,
+                    gr_texts_title_textbox,
                     gr_texts_hashtags_textbox,
-                    texts_hashtags,
                     gr_max_tokens,
                     gr_temperature,
                     gr_model,
                 ],
-                outputs=[gr_texts_hashtags_textbox, texts_hashtags],
+                outputs=[gr_texts_hashtags_textbox],
             )
+        gr_input_textbox.change(
+            parse_textbox,
+            inputs=[gr_input_textbox],
+            outputs=[texts_references, gr_texts_hashtags_textbox, gr_texts_title_textbox],
+        )
         gr_generate_texts_button = gr.Button(value="Combine")
         gr_texts_textbox = gr.Textbox(label="Copy Paste into YouTube")
         gr_generate_texts_button.click(
             combine_texts,
             inputs=[
-                texts_text,
+                gr_texts_title_textbox,
                 texts_references,
                 gr_texts_hashtags_textbox,
             ],
@@ -689,39 +676,28 @@ Like 👍. Comment 💬. Subscribe 🟥.
                 label="Text Settings",
                 open=False,
             ):
-                rect_color = gr.State(value="#64dbf1")
-                rect_padding = gr.State(value=20)
-                font_path = gr.State(
-                    value=os.path.join(data_dir.value, "RobotoMono-VariableFont_wght.ttf"))
-                font_size = gr.State(value=72)
-
-                gr_color_picker = gr.ColorPicker(
+                gr_rect_color = gr.ColorPicker(
                     label="Rectangle Color",
                     value="#64dbf1",
                 )
-                gr_color_picker.update(rect_color)
                 gr_font_path = gr.File(
                     label="Font",
-                    accept=".ttf",
-                    value=font_path.value,
+                    value=os.path.join(data_dir.value, "RobotoMono-VariableFont_wght.ttf"),
                 )
-                gr_font_path.update(font_path)
                 gr_font_size = gr.Slider(
                     minimum=50,
                     maximum=120,
-                    value=font_size.value,
+                    value=72,
                     label="Font Size",
                     step=1,
                 )
-                gr_font_size.update(font_size)
                 gr_rect_padding = gr.Slider(
                     minimum=0,
                     maximum=100,
-                    value=rect_padding.value,
+                    value=10,
                     label="Rectangle Padding",
                     step=1,
                 )
-                gr_rect_padding.update(rect_padding)
         gr_combined_image = gr.Image(
             label="Combined",
             image_mode="RGB",
@@ -732,11 +708,11 @@ Like 👍. Comment 💬. Subscribe 🟥.
                 data_dir,
                 gr_fg_image,
                 gr_bg_image,
-                texts_title,
-                font_path,
-                font_size,
-                rect_color,
-                rect_padding,
+                gr_texts_title_textbox,
+                gr_font_path,
+                gr_font_size,
+                gr_rect_color,
+                gr_rect_padding,
             ],
             outputs=[gr_combined_image],
         )
