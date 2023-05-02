@@ -1,14 +1,15 @@
 import logging
 import os
+import random
 import re
 import uuid
 from io import BytesIO
 from typing import Dict, List, Union
 
-import numpy as np
 import arxiv
 import discord
 import gradio as gr
+import numpy as np
 import openai
 import replicate
 import requests
@@ -16,7 +17,6 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from notion_client import Client
 from PIL import Image, ImageDraw, ImageFont
-
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("tubegpt")
@@ -263,6 +263,7 @@ def draw_text(
     font_size=72,
     rectangle_color=(0, 0, 0),
     rectangle_padding=20,
+    position_jitter=50,
 ):
     font = ImageFont.truetype(font_path, font_size)
     # draw text on image
@@ -272,83 +273,77 @@ def draw_text(
     # Calculate the position to center the text
     x = (image.size[0] - text_width) / 2
     y = (image.size[1] - text_height) / 2
-
+    # Jitter position of Text
+    x += random.randint(-position_jitter, position_jitter)
+    y += random.randint(-position_jitter, position_jitter)
     # Draw a solid colored rectangle behind the text
     rectangle_x1 = x - rectangle_padding
     rectangle_y1 = y - rectangle_padding
-    rectangle_x2 = x + text_width + rectangle_padding
-    rectangle_y2 = y + text_height + rectangle_padding
+    rectangle_x2 = x + text_width + 2*rectangle_padding
+    rectangle_y2 = y + text_height + 2*rectangle_padding
     draw.rectangle(
-        [rectangle_x1, rectangle_y1, rectangle_x2, rectangle_y2], fill=rectangle_color
+        [rectangle_x1, rectangle_y1, rectangle_x2, rectangle_y2],
+        fill=rectangle_color,
     )
-
-    # Render the text
     draw.text((x, y), text, fill=text_color, font=font)
     image.save(output_path)
 
 
 def resize_bg(
-    img=None,
-    image_path=None,
+    image=None,
     output_path=None,
     canvas_size=(1280, 720),
 ):
-    if img is None:
-        img = Image.open(image_path)
-    else:
-        img = Image.fromarray(img)
+    image = Image.fromarray(image)
     # Keep aspect ratio, resize width to fit
-    width, height = img.size
+    width, height = image.size
     new_width = canvas_size[0]
     new_height = int(height * new_width / width)
-    resized_image = img.resize((new_width, new_height), Image.ANTIALIAS)
-
+    resized_image = image.resize((new_width, new_height), Image.ANTIALIAS)
     # Create a new canvas with the desired size, transparent background
     canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
-
     # Center the resized image on the canvas
     paste_position = (
         int((canvas_size[0] - new_width) / 2),
         int((canvas_size[1] - new_height) / 2),
     )
     canvas.paste(resized_image, paste_position)
-
-    # Save the result
     canvas.save(output_path)
 
 
 def stack_fgbg(
     fg_image: np.ndarray = None,
+    mask_image: np.ndarray = None,
     bg_image: np.ndarray = None,
-    fg_image_path: str=None,
-    bg_image_path: str=None,
+    bg_image_path=None,
     output_path=None,
     bg_size=(1280, 720),
     fg_size=(420, 420),
+    position_jitter=50,
 ):
-    # load images
-    if fg_image is None:
-        fg_image = Image.open(fg_image_path)
-    else:
-        fg_image = Image.fromarray(fg_image)
-    if bg_image is None:
+    fg_image = Image.fromarray(fg_image)
+    mask_image = Image.fromarray(mask_image)
+    if bg_image_path is not None:
         bg_image = Image.open(bg_image_path)
     else:
         bg_image = Image.fromarray(bg_image)
     # resize images
     fg_image = fg_image.resize(fg_size)
+    mask_image = mask_image.resize(fg_size)
     bg_image = bg_image.resize(bg_size)
-    # Add alpha channel to foreground
-    fg_image = fg_image.convert("RGBA")
-    # Upper left corner of the foreground such that it sits in the lower left corner of background
-    x = 0
-    y = bg_size[1] - fg_size[1]
+    x, y = random.choice([
+        # Lower left corner
+        (0, bg_size[1] - fg_size[1]),
+        # Lower right corner
+        (bg_size[0] - fg_size[0], bg_size[1] - fg_size[1]),
+    ])
+    # Jitter x and y position
+    x += random.randint(-position_jitter, position_jitter)
+    y += random.randint(-position_jitter, position_jitter)
     # Final image
     image_full = Image.new("RGBA", bg_size)
-    image_full.paste(fg_image, (x, y), fg_image)
+    image_full.paste(fg_image, (x, y), mask_image)
     final = Image.alpha_composite(bg_image, image_full)
-    # paste images, account for alpha channel
-    # save output image
     final.save(output_path)
 
 
@@ -371,7 +366,11 @@ def remove_bg(
     )
     # save output image
     image = Image.open(BytesIO(requests.get(img_url).content))
-    image.save(output_path)
+    # Get the mask from image
+    image_mask = image.split()[-1]
+    if output_path is not None:
+        image_mask.save(output_path)
+    return image_mask
 
 
 def get_video_sentence_from_description(description):
@@ -502,35 +501,31 @@ def generate_texts_hashtags(
 
 def generate_thumbnails(
     data_dir: str,
-    gr_fg_image: str,
-    gr_bg_image: str,
+    fg_image: str,
+    fg_mask_image: str,
+    bg_image: str,
     title: str,
+    font_color: str,
     font_path: str,
     font_size: int,
     rect_color: str,
     rect_padding: int,
 ):
     image_name = str(uuid.uuid4())
-    # Remove foreground background with replicate
-    image_nobg_path = os.path.join(data_dir, f"{image_name}_nobg.png")
-    remove_bg(
-        image=gr_fg_image,
-        data_dir=data_dir,
-        output_path=image_nobg_path,
-    )
-    # resize background
+    bg_image_path = os.path.join(data_dir, f"{image_name}_bg.png")
     resize_bg(
-        img=gr_bg_image,
-        output_path=os.path.join(data_dir, f"{image_name}.png"),
-        canvas_size=(1280, 720),
+        image=bg_image,
+        output_path=bg_image_path,
     )
     # Convert hex color to rgb
     rect_color = tuple(int(rect_color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
+    font_color = tuple(int(font_color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
+    bg_image_text_path = os.path.join(data_dir, f"{image_name}_text.png")
     draw_text(
-        image_path=os.path.join(data_dir, f"{image_name}.png"),
-        output_path=os.path.join(data_dir, f"{image_name}_text.png"),
+        image_path=bg_image_path,
+        output_path=bg_image_text_path,
         text=title,
-        text_color=(0, 0, 0),
+        text_color=font_color,
         font_size=font_size,
         font_path=font_path.name,
         rectangle_color=rect_color,
@@ -538,11 +533,10 @@ def generate_thumbnails(
     )
     image_path = os.path.join(data_dir, f"{image_name}_final.png")
     stack_fgbg(
-        fg_image_path=image_nobg_path,
-        bg_image_path=os.path.join(data_dir, f"{image_name}_text.png"),
+        fg_image=fg_image,
+        mask_image=fg_mask_image,
+        bg_image_path=bg_image_text_path,
         output_path=image_path,
-        bg_size=(1280, 720),
-        fg_size=(512, 512),
     )
     return image_path
 
@@ -561,8 +555,7 @@ with gr.Blocks() as demo:
     keys_dir = gr.State(value=KEYS_DIR)
     data_dir = gr.State(value=DATA_DIR)
     texts_text = gr.State(
-        value="""
-Like 👍. Comment 💬. Subscribe 🟥.
+        value="""Like 👍. Comment 💬. Subscribe 🟥.
 🏘 Discord: https://discord.gg/XKgVSxB6dE
 """
     )
@@ -635,7 +628,7 @@ Like 👍. Comment 💬. Subscribe 🟥.
         gr_generate_texts_button.click(
             combine_texts,
             inputs=[
-                gr_texts_title_textbox,
+                texts_text,
                 texts_references,
                 gr_texts_hashtags_textbox,
             ],
@@ -671,15 +664,32 @@ Like 👍. Comment 💬. Subscribe 🟥.
             outputs=[gr_fg_image],
         )
         with gr.Row():
+            gr_mask_image = gr.Image(
+                label="Foreground Mask",
+                image_mode="L",
+            )
+            with gr.Column():
+                gr_make_mask_button = gr.Button(value="Make Mask")
+        gr_make_mask_button.click(
+            remove_bg,
+            inputs=[gr_fg_image, data_dir],
+            outputs=[gr_mask_image],
+        )
+        with gr.Row():
             gr_combine_button = gr.Button(value="Combine")
             with gr.Accordion(
                 label="Text Settings",
                 open=False,
             ):
-                gr_rect_color = gr.ColorPicker(
-                    label="Rectangle Color",
-                    value="#64dbf1",
-                )
+                with gr.Row():
+                    gr_rect_color = gr.ColorPicker(
+                        label="Rectangle Color",
+                        value="#64dbf1",
+                    )
+                    gr_font_color = gr.ColorPicker(
+                        label="Text Color",
+                        value="#000000",
+                    )
                 gr_font_path = gr.File(
                     label="Font",
                     value=os.path.join(data_dir.value, "RobotoMono-VariableFont_wght.ttf"),
@@ -707,8 +717,10 @@ Like 👍. Comment 💬. Subscribe 🟥.
             inputs=[
                 data_dir,
                 gr_fg_image,
+                gr_mask_image,
                 gr_bg_image,
                 gr_texts_title_textbox,
+                gr_font_color,
                 gr_font_path,
                 gr_font_size,
                 gr_rect_color,
