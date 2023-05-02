@@ -616,24 +616,17 @@ def generate_thumbnails(
 
 # Define the main GradIO UI
 with gr.Blocks() as demo:
+    gr.Markdown(
+"""
+# TubeGPT 📺
+
+This AI tool helps you create YouTube videos. Start by finding a cool paper [Twitter List](https://twitter.com/i/lists/1653485531546767361), [PapersWithCode](https://paperswithcode.com/), [Reddit Feed](https://www.reddit.com/user/deephugs/m/ml/), [Arxiv Sanity](http://www.arxiv-sanity.com/)
+"""
+    )
     log.info("Starting GradIO Frontend ...")
     root_dir = gr.State(value=ROOT_DIR)
     keys_dir = gr.State(value=KEYS_DIR)
     data_dir = gr.State(value=DATA_DIR)
-    with gr.Tab("Explore"):
-        gr.Markdown(
-"""
-# TubeGPT 📺
-
-This AI tool helps you create YouTube videos. Start by finding a cool paper:
-
-1. [Twitter List](https://twitter.com/i/lists/1653485531546767361)
-2. [PapersWithCode](https://paperswithcode.com/)
-3. [Reddit Feed](https://www.reddit.com/user/deephugs/m/ml/)
-4. [Arxiv Sanity](http://www.arxiv-sanity.com/)
-
-"""
-        )
     texts_text = gr.State(
         value="""Like 👍. Comment 💬. Subscribe 🟥.
 🏘 Discord: https://discord.gg/XKgVSxB6dE
@@ -783,7 +776,7 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper:
                 gr_font_size = gr.Slider(
                     minimum=50,
                     maximum=120,
-                    value=72,
+                    value=92,
                     label="Font Size",
                     step=1,
                 )
