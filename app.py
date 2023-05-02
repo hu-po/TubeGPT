@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import random
@@ -152,13 +153,8 @@ def create_notion_page(
 ):
     notion = Client(auth=os.environ["NOTION_API_KEY"])
     # Get the database
-    query_filter = {
-        "property": "object",
-        "value": "database"
-    }
-    response = notion.search(
-        query=database_name,
-        filter=query_filter).get("results")
+    query_filter = {"property": "object", "value": "database"}
+    response = notion.search(query=database_name, filter=query_filter).get("results")
 
     database_id = None
     for database in response:
@@ -173,33 +169,61 @@ def create_notion_page(
                     {
                         "text": {
                             "content": title,
-                        }
+                        },
+                        "emoji": {
+                            "name": gpt_emoji(title),
+                        },
                     }
                 ]
             },
-            "Platform": {
-                "multi_select": [
-                    {
-                        "name": "YT Live"
-                    },
-                ]
-            },
-            "Status": {
-                "status": {
-                    "name": "Planning"
+            "Date": {
+                "date": {
+                    "start": str(datetime.datetime.now().date()),
                 }
             },
-            "Type": {
+            "Platform": {
                 "multi_select": [
-                    {
-                        "name": "Code"
-                    },
-                    {
-                        "name": "Paper"
-                    },
+                    {"name": "YT Live"},
                 ]
             },
-    }
+            "Status": {"status": {"name": "Planning"}},
+            "Type": {
+                "multi_select": [
+                    {"name": "Code"},
+                    {"name": "Paper"},
+                ]
+            },
+        },
+    )
+
+    # Get the page
+    query_filter = {"property": "object", "value": "page"}
+    response = notion.search(query=title, filter=query_filter).get("results")
+
+    page_id = None
+    for page in response:
+        if page["properties"]["Name"]["title"][0]["text"]["content"] == title:
+            page_id = page["id"]
+    
+    # Add text to the page
+    notion.blocks.children.append(
+        block_id=page_id,
+        children=[
+            {
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "text": [
+                        {
+                            "type": "code",
+                            "text": {
+                                "content": text,
+                            },
+                        }
+                    ]
+                },
+            }
+        ],
     )
 
 
@@ -226,6 +250,23 @@ def gpt_text(
         stop=stop,
     )
     return response["choices"][0]["message"]["content"]
+
+
+def gpt_emoji(prompt):
+    try:
+        emoji = gpt_text(
+            prompt=prompt,
+            system=" ".join(
+                [
+                    "Respond with a single emoji based on the user prompt.",
+                    "Do not explain, respond with the emoji only",
+                ]
+            ),
+            temperature=0.3,
+        )
+    except Exception:
+        emoji = "👻"
+    return emoji
 
 
 def gpt_color():
@@ -308,8 +349,8 @@ def draw_text(
     # Draw a solid colored rectangle behind the text
     rectangle_x1 = x - rectangle_padding
     rectangle_y1 = y - rectangle_padding
-    rectangle_x2 = x + text_width + 2*rectangle_padding
-    rectangle_y2 = y + text_height + 2*rectangle_padding
+    rectangle_x2 = x + text_width + 2 * rectangle_padding
+    rectangle_y2 = y + text_height + 2 * rectangle_padding
     draw.rectangle(
         [rectangle_x1, rectangle_y1, rectangle_x2, rectangle_y2],
         fill=rectangle_color,
@@ -360,12 +401,14 @@ def stack_fgbg(
     fg_image = fg_image.resize(fg_size)
     mask_image = mask_image.resize(fg_size)
     bg_image = bg_image.resize(bg_size)
-    x, y = random.choice([
-        # Lower left corner
-        (0, bg_size[1] - fg_size[1]),
-        # Lower right corner
-        (bg_size[0] - fg_size[0], bg_size[1] - fg_size[1]),
-    ])
+    x, y = random.choice(
+        [
+            # Lower left corner
+            (0, bg_size[1] - fg_size[1]),
+            # Lower right corner
+            (bg_size[0] - fg_size[0], bg_size[1] - fg_size[1]),
+        ]
+    )
     # Jitter x and y position
     x += random.randint(-position_jitter, position_jitter)
     y += random.randint(-position_jitter, position_jitter)
@@ -379,8 +422,8 @@ def stack_fgbg(
 def remove_bg(
     image: np.ndarray = None,
     data_dir: str = None,
-    image_path: str=None,
-    output_path: str=None,
+    image_path: str = None,
+    output_path: str = None,
 ):
     # Temporary file location for image
     if image is not None:
@@ -508,9 +551,7 @@ def generate_texts_title(title, max_tokens, temperature, model):
     )
 
 
-def generate_texts_hashtags(
-    title, hashtags, max_tokens, temperature, model
-):
+def generate_texts_hashtags(title, hashtags, max_tokens, temperature, model):
     return gpt_text(
         prompt=hashtags,
         system=" ".join(
@@ -650,7 +691,11 @@ with gr.Blocks() as demo:
         gr_input_textbox.change(
             parse_textbox,
             inputs=[gr_input_textbox],
-            outputs=[texts_references, gr_texts_hashtags_textbox, gr_texts_title_textbox],
+            outputs=[
+                texts_references,
+                gr_texts_hashtags_textbox,
+                gr_texts_title_textbox,
+            ],
         )
         gr_generate_texts_button = gr.Button(value="Combine")
         gr_texts_textbox = gr.Textbox(label="Copy Paste into YouTube")
@@ -685,7 +730,7 @@ with gr.Blocks() as demo:
                     placeholder="Foreground Prompt",
                     show_label=False,
                     lines=1,
-                    value = "portrait of a blue eyed white bengal cat"
+                    value="portrait of a blue eyed white bengal cat",
                 )
         gr_generate_fg_button.click(
             gpt_image,
@@ -721,7 +766,9 @@ with gr.Blocks() as demo:
                     )
                 gr_font_path = gr.File(
                     label="Font",
-                    value=os.path.join(data_dir.value, "RobotoMono-VariableFont_wght.ttf"),
+                    value=os.path.join(
+                        data_dir.value, "RobotoMono-VariableFont_wght.ttf"
+                    ),
                 )
                 gr_font_size = gr.Slider(
                     minimum=50,
