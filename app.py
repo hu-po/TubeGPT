@@ -1,12 +1,12 @@
-import logging
 import datetime
+import logging
 import os
 import random
 import re
+import time
 import uuid
 from io import BytesIO
 from typing import Dict, List, Union
-import time
 
 import arxiv
 import discord
@@ -18,6 +18,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from notion_client import Client
 from PIL import Image, ImageDraw, ImageFont
+from transformers import SamModel, SamProcessor
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("tubegpt")
@@ -49,7 +50,8 @@ def set_discord_key(key=None):
             with open(os.path.join(KEYS_DIR, "discord.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
-            log.warning("Discord API key not found. Some features may not work.")
+            log.warning("Discord API key not found.")
+            return
     os.environ["DISCORD_API_KEY"] = key
     log.info("Discord API key set.")
 
@@ -60,7 +62,8 @@ def set_replicate_key(key=None):
             with open(os.path.join(KEYS_DIR, "replicate.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
-            log.warning("Replicate API key not found. Some features may not work.")
+            log.warning("Replicate API key not found.")
+            return
     os.environ["REPLICATE_API_TOKEN"] = key
     log.info("Replicate API key set.")
 
@@ -71,7 +74,8 @@ def set_openai_key(key=None):
             with open(os.path.join(KEYS_DIR, "openai.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
-            log.warning("OpenAI API key not found. Some features may not work.")
+            log.warning("OpenAI API key not found.")
+            return
     os.environ["OPENAI_API_KEY"] = key
     openai.api_key = key
     log.info("OpenAI API key set.")
@@ -83,7 +87,8 @@ def set_notion_key(key=None):
             with open(os.path.join(KEYS_DIR, "notion.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
-            log.warning("Notion API key not found. Some features may not work.")
+            log.warning("Notion API key not found.")
+            return
     os.environ["NOTION_API_KEY"] = key
     log.info("Notion API key set.")
 
@@ -94,9 +99,41 @@ def set_google_key(key=None):
             with open(os.path.join(KEYS_DIR, "google.txt"), "r") as f:
                 key = f.read()
         except FileNotFoundError:
-            log.warning("Google API key not found. Some features may not work.")
+            log.warning("Google API key not found.")
+            return
     os.environ["GOOGLE_API_KEY"] = key
     log.info("Google API key set.")
+
+def set_huggingface_key(key=None):
+    if key is None:
+        try:
+            with open(os.path.join(KEYS_DIR, "huggingface.txt"), "r") as f:
+                key = f.read()
+        except FileNotFoundError:
+            log.warning("HuggingFace API key not found.")
+            return
+    os.environ["HF_API_KEY"] = key
+    log.info("HuggingFace API key set.")
+
+
+def segment_image(
+        image,
+        encoder = "facebook/sam-vit-large",
+    ):
+    model = SamModel.from_pretrained(encoder, use_auth_token=os.environ["HF_API_KEY"])
+    processor = SamProcessor.from_pretrained(encoder, use_auth_token=os.environ["HF_API_KEY"])
+    width, height = image.size
+    if width > height:
+        # Wide image
+        left = image.crop((0, 0, width // 2, height))
+        right = image.crop((width // 2, 0, width, height))
+        return [left, right]
+    else:
+        # Tall image
+        top = image.crop((0, 0, width, height // 2))
+        bottom = image.crop((0, height // 2, width, height))
+        return [top, bottom]
+    
 
 
 def find_paper(url: str) -> arxiv.Result:
