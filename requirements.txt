@@ -10,3 +10,4 @@ gradio
 PyGithub
 transformers
 torchvision
+pymupdf

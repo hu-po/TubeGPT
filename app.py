@@ -10,15 +10,16 @@ from typing import Dict, List, Union
 
 import arxiv
 import discord
+import fitz  # PyMuPDF
 import gradio as gr
 import openai
 import replicate
 import requests
+import torch
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from notion_client import Client
 from PIL import Image, ImageDraw, ImageFont
-import torch
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("tubegpt")
@@ -122,7 +123,8 @@ def segment_segformer(
     image,
     model_name="nvidia/segformer-b2-finetuned-cityscapes-1024-1024",
 ):
-    from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
+    from transformers import SegformerForSemanticSegmentation, SegformerImageProcessor
+
     processor = SegformerImageProcessor.from_pretrained(model_name)
     model = SegformerForSemanticSegmentation.from_pretrained(model_name)
 
@@ -522,6 +524,33 @@ def repo_blurb(url: str) -> str:
         return None
 
 
+def extract_images_from_pdf(
+    pdf_url,
+):
+    # Download the pdf from the url
+    pdf_path = os.path.join(DATA_DIR, f"{uuid.uuid4()}.pdf")
+    with open(pdf_path, "wb") as f:
+        f.write(requests.get(pdf_url).content)
+    # List of images
+    images = []
+    # Open the PDF
+    pdf = fitz.open(pdf_path)
+    for page_num in range(pdf.page_count):
+        page = pdf.load_page(page_num)
+        image_list = page.get_images(full=True)
+        for _, img in enumerate(image_list):
+            xref = img[0]
+            base_image = pdf.extract_image(xref)
+            image_bytes = base_image["image"]
+            # Convert image bytes to PIL Image
+            img = Image.open(BytesIO(image_bytes))
+            # Convert PIL Image to numpy array
+            images.append(img)
+    # Close the PDF
+    pdf.close()
+    return images
+
+
 def send_discord():
     intents = discord.Intents.default()
     intents.message_content = True
@@ -762,6 +791,17 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
             label="Background",
             image_mode="RGB",
         )
+        with gr.Accordion(label="Extract Images from PDF", open=False):
+            gr_extracted_images_gallery = gr.Gallery(
+                label="Extracted Images",
+                image_mode="RGB",
+            )
+            gr_extract_images_button = gr.Button(value="Extract Images")
+            gr_extract_images_button.click(
+                extract_images_from_pdf,
+                inputs=[gr_input_textbox],
+                outputs=[gr_extracted_images_gallery],
+            )
         with gr.Accordion(label="Generate Foreground w/ OpenAI Image", open=False):
             with gr.Row():
                 gr_fg_image = gr.Image(
