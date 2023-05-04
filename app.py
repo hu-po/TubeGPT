@@ -18,7 +18,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from notion_client import Client
 from PIL import Image, ImageDraw, ImageFont
-from transformers import SamModel, SamProcessor
+import torch
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("tubegpt")
@@ -104,6 +104,7 @@ def set_google_key(key=None):
     os.environ["GOOGLE_API_KEY"] = key
     log.info("Google API key set.")
 
+
 def set_huggingface_key(key=None):
     if key is None:
         try:
@@ -112,28 +113,43 @@ def set_huggingface_key(key=None):
         except FileNotFoundError:
             log.warning("HuggingFace API key not found.")
             return
-    os.environ["HF_API_KEY"] = key
+    os.environ["HUGGINGFACE_API_KEY"] = key
     log.info("HuggingFace API key set.")
 
 
-def segment_image(
-        image,
-        encoder = "facebook/sam-vit-large",
-    ):
-    model = SamModel.from_pretrained(encoder, use_auth_token=os.environ["HF_API_KEY"])
-    processor = SamProcessor.from_pretrained(encoder, use_auth_token=os.environ["HF_API_KEY"])
-    width, height = image.size
-    if width > height:
-        # Wide image
-        left = image.crop((0, 0, width // 2, height))
-        right = image.crop((width // 2, 0, width, height))
-        return [left, right]
-    else:
-        # Tall image
-        top = image.crop((0, 0, width, height // 2))
-        bottom = image.crop((0, height // 2, width, height))
-        return [top, bottom]
-    
+def segment_segformer(
+    text,
+    image,
+    model_name="nvidia/segformer-b2-finetuned-cityscapes-1024-1024",
+):
+    from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
+    processor = SegformerImageProcessor.from_pretrained(model_name)
+    model = SegformerForSemanticSegmentation.from_pretrained(model_name)
+
+    image = Image.fromarray(image)
+    with torch.no_grad():
+        inputs = processor(images=image, return_tensors="pt")
+        outputs = model(**inputs)
+
+    # Predicted mask with class indices
+    class_mask = outputs.logits.argmax(1)
+
+    # Get all the unique classes, and their name
+    class_ids = torch.unique(class_mask)
+    class_names = [model.config.id2label[x.item()] for x in class_ids]
+
+    if text in class_names:
+        class_id = model.config.label2id[text]
+        mask = class_mask == class_id
+        mask = mask.squeeze().cpu().numpy()
+        mask = mask.astype("uint8") * 255
+        mask = Image.fromarray(mask)
+        mask = mask.resize(image.size)
+
+        # Apply mask to image
+        image = Image.composite(image, mask, mask)
+        return image, ",".join(class_names)
+    return image, ",".join(class_names)
 
 
 def find_paper(url: str) -> arxiv.Result:
@@ -746,38 +762,63 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
             label="Background",
             image_mode="RGB",
         )
-        with gr.Row():
-            gr_fg_image = gr.Image(
-                label="Foreground",
-                image_mode="RGB",
-            )
-            with gr.Column():
-                gr_generate_fg_button = gr.Button(value="Generate Foreground")
-                gr_fg_prompt_textbox = gr.Textbox(
-                    placeholder="Foreground Prompt",
-                    show_label=False,
-                    lines=1,
-                    value="portrait of a blue eyed white bengal cat",
+        with gr.Accordion(label="Generate Foreground w/ OpenAI Image", open=False):
+            with gr.Row():
+                gr_fg_image = gr.Image(
+                    label="Foreground",
+                    image_mode="RGB",
                 )
-        gr_generate_fg_button.click(
-            gpt_image,
-            inputs=[gr_fg_prompt_textbox],
-            outputs=[gr_fg_image],
-        )
-        with gr.Row():
-            gr_mask_image = gr.Image(
-                label="Foreground Mask",
-                image_mode="L",
+                with gr.Column():
+                    gr_generate_fg_button = gr.Button(value="Generate Foreground")
+                    gr_fg_prompt_textbox = gr.Textbox(
+                        placeholder="Foreground Prompt",
+                        show_label=False,
+                        lines=1,
+                        value="portrait of a blue eyed white bengal cat",
+                    )
+            gr_generate_fg_button.click(
+                gpt_image,
+                inputs=[gr_fg_prompt_textbox],
+                outputs=[gr_fg_image],
             )
-            with gr.Column():
-                gr_make_mask_button = gr.Button(value="Make Mask")
-        gr_make_mask_button.click(
-            remove_bg,
-            inputs=[gr_fg_image],
-            outputs=[gr_mask_image],
-        )
+        with gr.Accordion(label="Remove Background with Replicate", open=False):
+            with gr.Row():
+                gr_mask_image = gr.Image(
+                    label="Foreground Mask",
+                    image_mode="L",
+                )
+                with gr.Column():
+                    gr_make_mask_button = gr.Button(value="Make Mask")
+            gr_make_mask_button.click(
+                remove_bg,
+                inputs=[gr_fg_image],
+                outputs=[gr_mask_image],
+            )
+        with gr.Accordion(label="Segment with Segformer", open=False):
+            with gr.Row():
+                gr_segment_image = gr.Image(
+                    label="Image to Segment",
+                    image_mode="RGB",
+                )
+                with gr.Column():
+                    gr_segment_button = gr.Button(value="Segment")
+                    gr_segment_textbox = gr.Textbox(
+                        placeholder="Class Name",
+                        show_label=False,
+                        lines=1,
+                    )
+                    gr_segment_out_textbox = gr.Textbox(
+                        placeholder="Found Classes",
+                        show_label=False,
+                        lines=4,
+                    )
+            gr_segment_button.click(
+                segment_segformer,
+                inputs=[gr_segment_textbox, gr_segment_image],
+                outputs=[gr_segment_image, gr_segment_out_textbox],
+            )
         with gr.Row():
-            gr_combine_button = gr.Button(value="Combine")
+            gr_combine_button = gr.Button(value="Make Thumbnail")
             with gr.Accordion(
                 label="Text Settings",
                 open=False,
@@ -884,6 +925,17 @@ This AI tool helps you create YouTube videos. Start by finding a cool paper [Twi
             inputs=[notion_api_key_textbox],
         )
         set_notion_key()
+        huggingface_api_key_textbox = gr.Textbox(
+            placeholder="Paste your HuggingFace API key here",
+            show_label=False,
+            lines=1,
+            type="password",
+        )
+        huggingface_api_key_textbox.change(
+            set_huggingface_key,
+            inputs=[huggingface_api_key_textbox],
+        )
+        set_huggingface_key()
 
     gr.HTML(
         """
