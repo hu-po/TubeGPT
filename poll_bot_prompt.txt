@@ -1,0 +1,10 @@
+Here is code for a discord message that will create a poll that allows users to vote on what papers they want:
+
+```
+/poll strawpoll question::page_with_curl: Papers for Week May 15, 2023 option-1:[Attention Is All You Need](https://arxiv.org/abs/1706.03762) option-2:[Parsing as Pretraining](https://arxiv.org/pdf/2002.01685v1.pdf) anonymous-voters:True num-of-choice:2
+```
+
+Can you create a similar message for me for the following papers instead. Only return the code, no explanation. The current week is May 15, 2023. The papers are:
+
+-To Compress or Not to Compress - Self-Supervised Learning and Information Theory: A Review, https://arxiv.org/pdf/2304.09355.pdf
+-FINDING NEURONS IN A HAYSTACK: CASE STUDIES WITH SPARSE PROBING, https://arxiv.org/pdf/2305.01610.pdf
