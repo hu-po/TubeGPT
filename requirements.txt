@@ -9,3 +9,5 @@ Pillow
 gradio
 PyGithub
 transformers
+torchvision
+pymupdf
